@@ -10,6 +10,7 @@ import {
   type SoundCategory,
 } from '@/lib/ambient-tracks';
 import { BrainWaveEngine } from '@/lib/audio-engine';
+import { AmbientMusicEngine, MUSIC_PROFILES } from '@/lib/ambient-music-engine';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -20,61 +21,83 @@ interface Props {
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as SoundCategory[];
 
 export function AudioPlayer({ track, onPlayingChange }: Props) {
-  const engineRef = useRef<BrainWaveEngine | null>(null);
+  // Engines
+  const binauralRef = useRef<BrainWaveEngine | null>(null);
+  const musicRef = useRef<AmbientMusicEngine | null>(null);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   const [activeCategory, setActiveCategory] = useState<SoundCategory>('rain');
 
-  // Mixer state
-  const [binauralVol, setBinauralVol] = useState(0.35);
-  const [ambientVol, setAmbientVol] = useState(0.65);
+  // Volume mix (0–1)
+  const [binauralVol, setBinauralVol] = useState(0.25);
+  const [musicVol, setMusicVol] = useState(0.6);
+  const [natureVol, setNatureVol] = useState(0.5);
+
+  // Beat frequency
   const [beatHz, setBeatHz] = useState(FREQUENCY_PROFILES[track.mentalState].hz);
 
-  // Soundscape selection — start with the recommended default for this mental state
+  // Soundscape
   const defaultId = DEFAULT_SOUNDSCAPE[track.mentalState] ?? SOUNDSCAPE_LIBRARY[0].id;
   const [selectedId, setSelectedId] = useState(defaultId);
-
   const selectedTrack = SOUNDSCAPE_LIBRARY.find((s) => s.id === selectedId) ?? SOUNDSCAPE_LIBRARY[0];
   const visibleSounds = SOUNDSCAPE_LIBRARY.filter((s) => s.category === activeCategory);
 
   const meta = MENTAL_STATE_META[track.mentalState];
   const profile = FREQUENCY_PROFILES[track.mentalState];
+  const musicProfile = MUSIC_PROFILES[track.mentalState];
 
-  // Set active category tab to match the default selection on mount
   useEffect(() => {
     setActiveCategory(selectedTrack.category);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Init engine on mount
+  // Create engines on mount, dispose on unmount
   useEffect(() => {
-    const engine = new BrainWaveEngine();
-    engineRef.current = engine;
-    return () => { engine.dispose(); };
+    binauralRef.current = new BrainWaveEngine();
+    musicRef.current = new AmbientMusicEngine();
+    return () => {
+      binauralRef.current?.dispose();
+      musicRef.current?.dispose();
+    };
   }, []);
 
   const handleToggle = useCallback(async () => {
-    const engine = engineRef.current;
-    if (!engine) return;
     setError('');
     try {
       if (!ready) {
-        await engine.init();
-        engine.setBinauralBeat(beatHz, 200);
-        engine.setBinauralVolume(binauralVol);
-        engine.setAmbientVolume(ambientVol);
-        await engine.setAmbient(selectedTrack.url);
-        engine.play();
+        // ── First play: initialise all three layers ──────────────────────
+        const binaural = binauralRef.current!;
+        const music = musicRef.current!;
+
+        // Layer 1: binaural beats
+        await binaural.init();
+        binaural.setBinauralBeat(beatHz, 200);
+        binaural.setBinauralVolume(binauralVol);
+        binaural.setAmbientVolume(0); // nature handled separately
+        binaural.play();
+
+        // Layer 2: generative ambient music
+        await music.init(track.mentalState);
+        music.setVolume(musicVol);
+        music.play();
+
+        // Layer 3: nature soundscape (via binaural engine's ambient slot)
+        binaural.setAmbientVolume(natureVol);
+        await binaural.setAmbient(selectedTrack.url);
+
         setReady(true);
         setIsPlaying(true);
         onPlayingChange?.(true);
-      } else if (engine.isPlaying) {
-        engine.pause();
+      } else if (isPlaying) {
+        binauralRef.current?.pause();
+        musicRef.current?.pause();
         setIsPlaying(false);
         onPlayingChange?.(false);
       } else {
-        engine.resume();
+        binauralRef.current?.resume();
+        musicRef.current?.resume();
         setIsPlaying(true);
         onPlayingChange?.(true);
       }
@@ -82,27 +105,32 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
       setError('Could not start audio. Please allow audio in your browser.');
       console.error(e);
     }
-  }, [ready, beatHz, binauralVol, ambientVol, selectedTrack, onPlayingChange]);
+  }, [ready, isPlaying, beatHz, binauralVol, musicVol, natureVol, selectedTrack, track.mentalState, onPlayingChange]);
 
   const handleBinauralVol = (v: number) => {
     setBinauralVol(v);
-    engineRef.current?.setBinauralVolume(v);
+    binauralRef.current?.setBinauralVolume(v);
   };
 
-  const handleAmbientVol = (v: number) => {
-    setAmbientVol(v);
-    engineRef.current?.setAmbientVolume(v);
+  const handleMusicVol = (v: number) => {
+    setMusicVol(v);
+    musicRef.current?.setVolume(v);
+  };
+
+  const handleNatureVol = (v: number) => {
+    setNatureVol(v);
+    binauralRef.current?.setAmbientVolume(v);
   };
 
   const handleBeatHz = (v: number) => {
     setBeatHz(v);
-    engineRef.current?.rampBeat(v, 3);
+    binauralRef.current?.rampBeat(v, 3);
   };
 
   const handleSelectSound = async (id: string) => {
     setSelectedId(id);
     const sound = SOUNDSCAPE_LIBRARY.find((s) => s.id === id);
-    if (ready && sound) await engineRef.current?.setAmbient(sound.url);
+    if (ready && sound) await binauralRef.current?.setAmbient(sound.url);
   };
 
   return (
@@ -115,7 +143,7 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
           {meta.label} · {track.duration} min · {track.intensity}
         </p>
         <p className="text-xs text-white/50 mt-0.5">
-          {beatHz.toFixed(1)} Hz {profile.wavetype.split('(')[0].trim()}
+          {beatHz.toFixed(1)} Hz · {musicProfile.description.split(',')[0]}
         </p>
       </div>
 
@@ -134,13 +162,14 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
         </button>
       </div>
 
-      {/* Mixer */}
+      {/* 3-layer mixer */}
       <div className="space-y-4 bg-black/20 rounded-2xl p-4">
         <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">Mixer</p>
 
+        {/* Beat frequency */}
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-white/70">
-            <span>🧠 Beat Frequency</span>
+            <span>🧠 Binaural Beat</span>
             <span className="font-mono font-bold">{beatHz.toFixed(1)} Hz</span>
           </div>
           <input
@@ -154,9 +183,10 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
           </div>
         </div>
 
+        {/* Binaural tone volume */}
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-white/70">
-            <span>〰️ Binaural Tone</span>
+            <span>〰️ Binaural Tone Level</span>
             <span>{Math.round(binauralVol * 100)}%</span>
           </div>
           <input
@@ -167,15 +197,30 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
           />
         </div>
 
+        {/* Generative music volume */}
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-white/70">
-            <span>🌿 Soundscape</span>
-            <span>{Math.round(ambientVol * 100)}%</span>
+            <span>🎹 Ambient Music</span>
+            <span>{Math.round(musicVol * 100)}%</span>
           </div>
           <input
             type="range" min={0} max={1} step={0.01}
-            value={ambientVol}
-            onChange={(e) => handleAmbientVol(parseFloat(e.target.value))}
+            value={musicVol}
+            onChange={(e) => handleMusicVol(parseFloat(e.target.value))}
+            className="w-full"
+          />
+        </div>
+
+        {/* Nature soundscape volume */}
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-white/70">
+            <span>🌿 Nature Sounds</span>
+            <span>{Math.round(natureVol * 100)}%</span>
+          </div>
+          <input
+            type="range" min={0} max={1} step={0.01}
+            value={natureVol}
+            onChange={(e) => handleNatureVol(parseFloat(e.target.value))}
             className="w-full"
           />
         </div>
@@ -184,7 +229,7 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
       {/* Soundscape picker */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">Soundscape</p>
+          <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">Nature Soundscape</p>
           <p className="text-xs text-white/40">{selectedTrack.emoji} {selectedTrack.label}</p>
         </div>
 
@@ -224,13 +269,12 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
             </button>
           ))}
         </div>
-
         <p className="text-[10px] text-white/25">{selectedTrack.source}</p>
       </div>
 
       {!ready && (
         <p className="text-center text-xs text-white/40">
-          🎧 Use headphones for the full binaural beat effect
+          🎧 Use headphones — three layers blend for the full effect
         </p>
       )}
     </div>
