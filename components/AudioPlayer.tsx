@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { GeneratedTrack } from '@/types';
-import { MENTAL_STATE_META, FREQUENCY_PROFILES } from '@/lib/brainwave-science';
+import { FREQUENCY_PROFILES } from '@/lib/brainwave-science';
 import {
   SOUNDSCAPE_LIBRARY,
   CATEGORY_LABELS,
@@ -21,7 +21,6 @@ interface Props {
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as SoundCategory[];
 
 export function AudioPlayer({ track, onPlayingChange }: Props) {
-  // Engines
   const binauralRef = useRef<BrainWaveEngine | null>(null);
   const musicRef = useRef<AmbientMusicEngine | null>(null);
 
@@ -30,22 +29,15 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
   const [error, setError] = useState('');
   const [activeCategory, setActiveCategory] = useState<SoundCategory>('rain');
 
-  // Volume mix (0–1)
   const [binauralVol, setBinauralVol] = useState(0.25);
   const [musicVol, setMusicVol] = useState(0.6);
   const [natureVol, setNatureVol] = useState(0.5);
-
-  // Beat frequency
   const [beatHz, setBeatHz] = useState(FREQUENCY_PROFILES[track.mentalState].hz);
 
-  // Soundscape
   const defaultId = DEFAULT_SOUNDSCAPE[track.mentalState] ?? SOUNDSCAPE_LIBRARY[0].id;
   const [selectedId, setSelectedId] = useState(defaultId);
   const selectedTrack = SOUNDSCAPE_LIBRARY.find((s) => s.id === selectedId) ?? SOUNDSCAPE_LIBRARY[0];
   const visibleSounds = SOUNDSCAPE_LIBRARY.filter((s) => s.category === activeCategory);
-
-  const meta = MENTAL_STATE_META[track.mentalState];
-  const profile = FREQUENCY_PROFILES[track.mentalState];
   const musicProfile = MUSIC_PROFILES[track.mentalState];
 
   useEffect(() => {
@@ -53,7 +45,6 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Create engines on mount, dispose on unmount
   useEffect(() => {
     binauralRef.current = new BrainWaveEngine();
     musicRef.current = new AmbientMusicEngine();
@@ -67,23 +58,19 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
     setError('');
     try {
       if (!ready) {
-        // ── First play: initialise all three layers ──────────────────────
         const binaural = binauralRef.current!;
         const music = musicRef.current!;
 
-        // Layer 1: binaural beats
         await binaural.init();
         binaural.setBinauralBeat(beatHz, 200);
         binaural.setBinauralVolume(binauralVol);
-        binaural.setAmbientVolume(0); // nature handled separately
+        binaural.setAmbientVolume(0);
         binaural.play();
 
-        // Layer 2: generative ambient music
         await music.init(track.mentalState);
         music.setVolume(musicVol);
         music.play();
 
-        // Layer 3: nature soundscape (via binaural engine's ambient slot)
         binaural.setAmbientVolume(natureVol);
         await binaural.setAmbient(selectedTrack.url);
 
@@ -107,25 +94,10 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
     }
   }, [ready, isPlaying, beatHz, binauralVol, musicVol, natureVol, selectedTrack, track.mentalState, onPlayingChange]);
 
-  const handleBinauralVol = (v: number) => {
-    setBinauralVol(v);
-    binauralRef.current?.setBinauralVolume(v);
-  };
-
-  const handleMusicVol = (v: number) => {
-    setMusicVol(v);
-    musicRef.current?.setVolume(v);
-  };
-
-  const handleNatureVol = (v: number) => {
-    setNatureVol(v);
-    binauralRef.current?.setAmbientVolume(v);
-  };
-
-  const handleBeatHz = (v: number) => {
-    setBeatHz(v);
-    binauralRef.current?.rampBeat(v, 3);
-  };
+  const handleBinauralVol = (v: number) => { setBinauralVol(v); binauralRef.current?.setBinauralVolume(v); };
+  const handleMusicVol    = (v: number) => { setMusicVol(v);    musicRef.current?.setVolume(v); };
+  const handleNatureVol   = (v: number) => { setNatureVol(v);   binauralRef.current?.setAmbientVolume(v); };
+  const handleBeatHz      = (v: number) => { setBeatHz(v);      binauralRef.current?.rampBeat(v, 3); };
 
   const handleSelectSound = async (id: string) => {
     setSelectedId(id);
@@ -134,104 +106,61 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
   };
 
   return (
-    <div className={cn('rounded-3xl p-6 bg-gradient-to-br text-white space-y-6', meta.color)}>
-      {/* Header */}
-      <div className="text-center">
-        <div className="text-5xl mb-2">{meta.emoji}</div>
-        <h2 className="text-xl font-bold">{track.title}</h2>
-        <p className="text-sm text-white/70 mt-1">
-          {meta.label} · {track.duration} min · {track.intensity}
-        </p>
-        <p className="text-xs text-white/50 mt-0.5">
-          {beatHz.toFixed(1)} Hz · {musicProfile.description.split(',')[0]}
-        </p>
-      </div>
-
+    <div className="glass rounded-2xl p-5 space-y-5">
       {error && (
-        <div className="text-red-200 text-xs bg-red-500/20 rounded-xl px-3 py-2">{error}</div>
+        <div className="text-red-400/80 text-xs bg-red-400/8 rounded-xl px-3 py-2">{error}</div>
       )}
 
-      {/* Play button */}
-      <div className="flex items-center justify-center">
+      {/* Play button + track summary */}
+      <div className="flex items-center gap-4">
         <button
           onClick={handleToggle}
-          className="w-16 h-16 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 flex items-center justify-center text-3xl transition-all"
+          className="w-14 h-14 flex-shrink-0 rounded-full bg-white/10 hover:bg-white/18 active:scale-95 flex items-center justify-center text-xl transition-all border border-white/10"
           aria-label={isPlaying ? 'Pause' : 'Play'}
         >
-          {isPlaying ? '⏸' : '▶️'}
+          {isPlaying ? '⏸' : '▶'}
         </button>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-white/80 truncate">{musicProfile.description.split(',')[0]}</p>
+          <p className="text-xs text-white/35 mt-0.5">
+            {beatHz.toFixed(1)} Hz · {selectedTrack.emoji} {selectedTrack.label}
+          </p>
+        </div>
       </div>
 
-      {/* 3-layer mixer */}
-      <div className="space-y-4 bg-black/20 rounded-2xl p-4">
-        <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">Mixer</p>
+      {/* Mixer sliders */}
+      <div className="space-y-3.5">
+        <p className="text-[10px] font-medium text-white/25 uppercase tracking-[0.15em]">Mixer</p>
 
-        {/* Beat frequency */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-white/70">
-            <span>🧠 Binaural Beat</span>
-            <span className="font-mono font-bold">{beatHz.toFixed(1)} Hz</span>
+        {[
+          { label: '🧠 Binaural Beat', suffix: `${beatHz.toFixed(1)} Hz`, value: beatHz, min: 0.5, max: 40, step: 0.5, onChange: handleBeatHz, isHz: true },
+          { label: '〰️ Binaural Tone', suffix: `${Math.round(binauralVol * 100)}%`, value: binauralVol, min: 0, max: 1, step: 0.01, onChange: handleBinauralVol },
+          { label: '🎹 Ambient Music',  suffix: `${Math.round(musicVol * 100)}%`,    value: musicVol,    min: 0, max: 1, step: 0.01, onChange: handleMusicVol },
+          { label: '🌿 Nature Sounds', suffix: `${Math.round(natureVol * 100)}%`,    value: natureVol,   min: 0, max: 1, step: 0.01, onChange: handleNatureVol },
+        ].map(({ label, suffix, value, min, max, step, onChange }) => (
+          <div key={label} className="space-y-1">
+            <div className="flex justify-between text-xs text-white/45">
+              <span>{label}</span>
+              <span className="font-mono text-white/30">{suffix}</span>
+            </div>
+            <input
+              type="range" min={min} max={max} step={step}
+              value={value}
+              onChange={(e) => onChange(parseFloat(e.target.value))}
+              className="w-full"
+            />
           </div>
-          <input
-            type="range" min={0.5} max={40} step={0.5}
-            value={beatHz}
-            onChange={(e) => handleBeatHz(parseFloat(e.target.value))}
-            className="w-full"
-          />
-          <div className="flex justify-between text-[10px] text-white/30">
-            <span>Delta</span><span>Theta</span><span>Alpha</span><span>Beta</span><span>Gamma</span>
-          </div>
-        </div>
+        ))}
 
-        {/* Binaural tone volume */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-white/70">
-            <span>〰️ Binaural Tone Level</span>
-            <span>{Math.round(binauralVol * 100)}%</span>
-          </div>
-          <input
-            type="range" min={0} max={1} step={0.01}
-            value={binauralVol}
-            onChange={(e) => handleBinauralVol(parseFloat(e.target.value))}
-            className="w-full"
-          />
-        </div>
-
-        {/* Generative music volume */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-white/70">
-            <span>🎹 Ambient Music</span>
-            <span>{Math.round(musicVol * 100)}%</span>
-          </div>
-          <input
-            type="range" min={0} max={1} step={0.01}
-            value={musicVol}
-            onChange={(e) => handleMusicVol(parseFloat(e.target.value))}
-            className="w-full"
-          />
-        </div>
-
-        {/* Nature soundscape volume */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-white/70">
-            <span>🌿 Nature Sounds</span>
-            <span>{Math.round(natureVol * 100)}%</span>
-          </div>
-          <input
-            type="range" min={0} max={1} step={0.01}
-            value={natureVol}
-            onChange={(e) => handleNatureVol(parseFloat(e.target.value))}
-            className="w-full"
-          />
+        {/* Beat Hz labels */}
+        <div className="flex justify-between text-[9px] text-white/20 -mt-1">
+          <span>δ Delta</span><span>θ Theta</span><span>α Alpha</span><span>β Beta</span><span>γ Gamma</span>
         </div>
       </div>
 
       {/* Soundscape picker */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">Nature Soundscape</p>
-          <p className="text-xs text-white/40">{selectedTrack.emoji} {selectedTrack.label}</p>
-        </div>
+      <div className="space-y-2.5">
+        <p className="text-[10px] font-medium text-white/25 uppercase tracking-[0.15em]">Soundscape</p>
 
         {/* Category tabs */}
         <div className="flex gap-1.5 flex-wrap">
@@ -240,10 +169,10 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
               key={cat}
               onClick={() => setActiveCategory(cat)}
               className={cn(
-                'text-xs px-2.5 py-1 rounded-lg border transition-all',
+                'text-[11px] px-2.5 py-1 rounded-lg border transition-all',
                 activeCategory === cat
-                  ? 'bg-white/25 border-white/40 text-white font-medium'
-                  : 'bg-white/5 border-white/10 hover:bg-white/15 text-white/50'
+                  ? 'bg-white/12 border-white/25 text-white'
+                  : 'bg-transparent border-white/8 text-white/35 hover:text-white/55 hover:border-white/15'
               )}
             >
               {CATEGORY_LABELS[cat]}
@@ -251,17 +180,17 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
           ))}
         </div>
 
-        {/* Sounds in active category */}
+        {/* Sound buttons */}
         <div className="flex gap-2 flex-wrap">
           {visibleSounds.map((sound) => (
             <button
               key={sound.id}
               onClick={() => handleSelectSound(sound.id)}
               className={cn(
-                'flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-all',
+                'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-all',
                 selectedId === sound.id
-                  ? 'bg-white text-black border-white font-medium'
-                  : 'bg-white/10 border-white/20 hover:bg-white/20 text-white/70'
+                  ? 'bg-white/15 border-white/30 text-white'
+                  : 'bg-white/3 border-white/8 hover:bg-white/8 text-white/45'
               )}
             >
               <span>{sound.emoji}</span>
@@ -269,12 +198,12 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
             </button>
           ))}
         </div>
-        <p className="text-[10px] text-white/25">{selectedTrack.source}</p>
+        <p className="text-[9px] text-white/18">{selectedTrack.source}</p>
       </div>
 
       {!ready && (
-        <p className="text-center text-xs text-white/40">
-          🎧 Use headphones — three layers blend for the full effect
+        <p className="text-center text-[11px] text-white/25">
+          🎧 Headphones recommended for binaural effect
         </p>
       )}
     </div>

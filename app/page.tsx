@@ -6,11 +6,17 @@ import { MoodSelector } from '@/components/MoodSelector';
 import type { MentalState, Duration, Intensity } from '@/types';
 import { cn } from '@/lib/utils';
 
-const DURATIONS: Duration[] = [5, 15, 30, 60];
-const INTENSITIES: { value: Intensity; label: string; desc: string }[] = [
-  { value: 'light', label: 'Light', desc: 'Subtle background support' },
-  { value: 'moderate', label: 'Moderate', desc: 'Balanced entrainment' },
-  { value: 'deep', label: 'Deep', desc: 'Full immersion' },
+const DURATIONS: { value: Duration; label: string }[] = [
+  { value: 5,  label: '5 min' },
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 60, label: '1 hour' },
+];
+
+const INTENSITIES: { value: Intensity; label: string; desc: string; icon: string }[] = [
+  { value: 'light',    label: 'Light',    desc: 'Subtle, in background', icon: '○' },
+  { value: 'moderate', label: 'Moderate', desc: 'Balanced entrainment',  icon: '◑' },
+  { value: 'deep',     label: 'Deep',     desc: 'Full immersion',        icon: '●' },
 ];
 
 export default function Home() {
@@ -54,8 +60,6 @@ export default function Home() {
       });
       if (!res.ok) throw new Error('Generation failed');
       const track = await res.json();
-
-      // Store in sessionStorage for the player page
       sessionStorage.setItem('brainwave_track', JSON.stringify(track));
       router.push('/player');
     } catch {
@@ -66,122 +70,145 @@ export default function Home() {
   };
 
   return (
-    <div className="space-y-10">
-      {/* Hero */}
-      <div className="text-center space-y-3 pt-4">
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
-          Music tuned to your{' '}
-          <span className="bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
-            brain
-          </span>
-        </h1>
-        <p className="text-white/50 text-lg max-w-xl mx-auto">
-          Science-backed frequencies. AI-generated in real time. For any mental state.
+    <div className="relative min-h-screen">
+      {/* Background aura orbs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="orb-1 absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-violet-600/10 blur-[120px]" />
+        <div className="orb-2 absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-cyan-500/8 blur-[100px]" />
+        <div className="absolute top-[40%] left-[50%] w-[300px] h-[300px] rounded-full bg-indigo-500/6 blur-[80px]" />
+      </div>
+
+      <div className="relative max-w-3xl mx-auto px-5 py-12 space-y-14">
+
+        {/* Hero */}
+        <div className="text-center space-y-5 fade-up">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass text-xs text-white/50 mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Binaural beats · Generative music · Nature sounds
+          </div>
+          <h1 className="text-5xl sm:text-6xl font-bold tracking-tight leading-tight">
+            What does your
+            <br />
+            <span className="bg-gradient-to-r from-violet-400 via-fuchsia-300 to-cyan-400 bg-clip-text text-transparent">
+              mind need?
+            </span>
+          </h1>
+          <p className="text-white/40 text-lg max-w-md mx-auto leading-relaxed">
+            Science-backed frequencies generated live in your browser. Free, forever.
+          </p>
+        </div>
+
+        {/* AI recommender */}
+        <div className="glass rounded-2xl p-1 fade-up">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={smartInput}
+              onChange={(e) => setSmartInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSmartRecommend()}
+              placeholder="Describe how you feel… e.g. can't focus, anxious, exhausted"
+              className="flex-1 bg-transparent px-4 py-3.5 text-sm text-white placeholder-white/25 focus:outline-none"
+            />
+            <button
+              onClick={handleSmartRecommend}
+              disabled={loadingRec || !smartInput.trim()}
+              className="m-1 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-500 hover:to-violet-400 text-sm font-medium disabled:opacity-30 transition-all whitespace-nowrap"
+            >
+              {loadingRec ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
+                  Thinking
+                </span>
+              ) : '✦ Suggest'}
+            </button>
+          </div>
+        </div>
+
+        {/* Mood selector */}
+        <div className="space-y-4 fade-up">
+          <p className="text-xs font-medium text-white/30 uppercase tracking-[0.2em]">Choose your state</p>
+          <MoodSelector selected={mentalState} onSelect={setMentalState} />
+        </div>
+
+        {/* Duration + Intensity row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 fade-up">
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-white/30 uppercase tracking-[0.2em]">Duration</p>
+            <div className="flex gap-2 flex-wrap">
+              {DURATIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setDuration(value)}
+                  className={cn(
+                    'px-4 py-2 rounded-xl text-sm font-medium border transition-all',
+                    duration === value
+                      ? 'bg-white text-black border-transparent'
+                      : 'glass text-white/60 hover:text-white hover:border-white/20'
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-white/30 uppercase tracking-[0.2em]">Intensity</p>
+            <div className="flex gap-2 flex-wrap">
+              {INTENSITIES.map(({ value, label, icon }) => (
+                <button
+                  key={value}
+                  onClick={() => setIntensity(value)}
+                  className={cn(
+                    'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all',
+                    intensity === value
+                      ? 'bg-white text-black border-transparent'
+                      : 'glass text-white/60 hover:text-white hover:border-white/20'
+                  )}
+                >
+                  <span className="text-xs">{icon}</span>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {error && (
+          <div className="text-red-400 text-sm glass border-red-400/20 rounded-xl px-4 py-3 fade-up">
+            {error}
+          </div>
+        )}
+
+        {/* Generate CTA */}
+        <button
+          onClick={handleGenerate}
+          disabled={!mentalState || generating}
+          className={cn(
+            'w-full py-5 rounded-2xl font-semibold text-base tracking-wide transition-all duration-300 fade-up',
+            mentalState && !generating
+              ? 'bg-gradient-to-r from-violet-600 via-fuchsia-600 to-cyan-600 hover:opacity-90 text-white shadow-2xl shadow-violet-600/25 hover:shadow-violet-600/40 hover:scale-[1.01] active:scale-[0.99]'
+              : 'bg-white/5 text-white/20 cursor-not-allowed border border-white/5'
+          )}
+        >
+          {generating ? (
+            <span className="flex items-center justify-center gap-3">
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Composing your session…
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-2">
+              Start Session
+              {mentalState && <span className="text-white/60">→</span>}
+            </span>
+          )}
+        </button>
+
+        {/* Footer note */}
+        <p className="text-center text-xs text-white/20 pb-4">
+          All audio generated in your browser · Free · Use headphones for best results
         </p>
       </div>
-
-      {/* Smart recommender */}
-      <div className="bg-white/5 rounded-2xl p-5 border border-white/10 space-y-3">
-        <label className="text-sm font-medium text-white/70">
-          ✨ Describe how you feel or what you need
-        </label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={smartInput}
-            onChange={(e) => setSmartInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSmartRecommend()}
-            placeholder="e.g. I need to study for my exam, I'm anxious about tomorrow..."
-            className="flex-1 bg-white/5 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 border border-white/10 focus:outline-none focus:border-white/30"
-          />
-          <button
-            onClick={handleSmartRecommend}
-            disabled={loadingRec || !smartInput.trim()}
-            className="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-sm font-medium disabled:opacity-40 transition-colors whitespace-nowrap"
-          >
-            {loadingRec ? 'Thinking…' : 'Suggest'}
-          </button>
-        </div>
-      </div>
-
-      {/* Mood selector */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-medium text-white/50 uppercase tracking-widest">
-          Choose your state
-        </h2>
-        <MoodSelector selected={mentalState} onSelect={setMentalState} />
-      </div>
-
-      {/* Duration */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-medium text-white/50 uppercase tracking-widest">Duration</h2>
-        <div className="flex gap-3 flex-wrap">
-          {DURATIONS.map((d) => (
-            <button
-              key={d}
-              onClick={() => setDuration(d)}
-              className={cn(
-                'px-5 py-2.5 rounded-xl text-sm font-medium border transition-all',
-                duration === d
-                  ? 'bg-white text-black border-white'
-                  : 'bg-white/5 border-white/10 text-white/70 hover:border-white/30'
-              )}
-            >
-              {d} min
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Intensity */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-medium text-white/50 uppercase tracking-widest">Intensity</h2>
-        <div className="flex gap-3 flex-wrap">
-          {INTENSITIES.map(({ value, label, desc }) => (
-            <button
-              key={value}
-              onClick={() => setIntensity(value)}
-              className={cn(
-                'flex flex-col items-start px-5 py-3 rounded-xl text-sm border transition-all',
-                intensity === value
-                  ? 'bg-white text-black border-white'
-                  : 'bg-white/5 border-white/10 text-white/70 hover:border-white/30'
-              )}
-            >
-              <span className="font-medium">{label}</span>
-              <span className={cn('text-xs', intensity === value ? 'text-black/60' : 'text-white/40')}>
-                {desc}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {error && (
-        <div className="text-red-400 text-sm bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
-          {error}
-        </div>
-      )}
-
-      {/* Generate CTA */}
-      <button
-        onClick={handleGenerate}
-        disabled={!mentalState || generating}
-        className={cn(
-          'w-full py-4 rounded-2xl font-semibold text-lg transition-all duration-200',
-          mentalState && !generating
-            ? 'bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white shadow-lg shadow-violet-500/20'
-            : 'bg-white/10 text-white/30 cursor-not-allowed'
-        )}
-      >
-        {generating ? (
-          <span className="flex items-center justify-center gap-2">
-            <span className="animate-spin">⟳</span> Generating your session…
-          </span>
-        ) : (
-          '🎵 Generate My Session'
-        )}
-      </button>
     </div>
   );
 }
