@@ -1,164 +1,195 @@
 /**
- * Ambient Music Engine — Tone.js generative music synthesis
+ * Ambient Music Engine — complete rewrite for audible, Brain.fm-quality music
  *
- * Redesigned for audible, Brain.fm-quality ambient music:
- *   • Drone:   filtered triangle oscillators (warm sub-bass foundation)
- *   • Pad:     PolySynth with fatsawtooth + low-pass filter (lush, rich chords)
- *   • Melody:  triangle synth, much louder & more frequent than before
+ * Previous version problems:
+ *  - Used setTimeout/setInterval (not audio-clock-synchronized → timing drift)
+ *  - Never started Tone.js Transport (Tone patterns never fired)
+ *  - Single random melody notes with 7–35 s gaps (not a melody)
+ *  - Pad attack 3–7 s → chord barely audible before it rotated
  *
- * Signal chain:
- *   Drone/Pad/Melody → FeedbackDelay → Reverb → MasterVol → destination
+ * This version:
+ *  - Starts Transport → all patterns are sample-accurate
+ *  - Tone.Pattern "upDown" arpeggio → continuous melodic movement
+ *  - Chord progression rotates every N bars with the arpeggio tracking it live
+ *  - Melody plays stepwise 4–6 note phrases every N bars (not random solo notes)
+ *  - Bass pulse on beats 1 & 3 for rhythmic grounding (focus/mood states)
+ *  - fatsawtooth pads through lowpass filter → warm, lush harmonic bed
+ *
+ * Signal chains:
+ *   Arpeggio → FeedbackDelay → ArpReverb ──┐
+ *   Pad      → LowpassFilter → PadReverb  ──┤→ MasterVol → destination
+ *   Melody   → MelodyReverb              ──┤
+ *   Bass     ──────────────────────────────┘
  */
 
 import type { MentalState } from '@/types';
 
-// ─── Note frequency table ─────────────────────────────────────────────────────
+// ─── Profile types ────────────────────────────────────────────────────────────
 
-const NOTE_FREQ: Record<string, number> = {
-  C2:65.41,  D2:73.42,  E2:82.41,  F2:87.31,  G2:98.00,  A2:110.00, B2:123.47,
-  C3:130.81, D3:146.83, E3:164.81, F3:174.61, G3:196.00, A3:220.00, B3:246.94,
-  C4:261.63, D4:293.66, E4:329.63, F4:349.23, G4:392.00, A4:440.00, B4:493.88,
-  C5:523.25, D5:587.33, E5:659.25, F5:698.46, G5:783.99, A5:880.00,
-  Db3:138.59, Eb3:155.56, Gb3:185.00, Ab3:207.65, Bb3:233.08,
-  Db4:277.18, Eb4:311.13, Gb4:369.99, Ab4:415.30, Bb4:466.16,
-  Db5:554.37, Eb5:622.25, Gb5:739.99, Ab5:830.61, Bb5:932.33,
-};
-
-function hz(note: string): number { return NOTE_FREQ[note] ?? 220; }
-
-// ─── Per-state music profiles ─────────────────────────────────────────────────
+/** One chord in a progression */
+export interface ChordDef {
+  voicing:  string[];  // pad notes   e.g. ["D3","F3","A3","C4"]
+  bass:     string;    // bass note   e.g. "D2"
+  arpNotes: string[];  // arpeggio note pool (higher register)
+}
 
 export interface MusicProfile {
-  droneNotes:         string[];
-  padNotes:           string[][];
-  padIntervalSec:     number;
-  padAttack:          number;
-  padRelease:         number;
-  melodyNotes:        string[];
-  melodyIntervalSec:  [number, number];
-  melodyEnabled:      boolean;
-  reverbDecay:        number;
-  masterVolume:       number; // dB — louder than previous version
-  description:        string;
+  bpm:              number;
+  chords:           ChordDef[];
+  barsPerChord:     number;     // bars before chord change
+  arpeggioSubdiv:   string;     // Tone.js subdivision "8n" | "16n" | "4n"
+  arpeggioEnabled:  boolean;
+  bassEnabled:      boolean;    // pulse bass on beats 1 & 3
+  melodyScale:      string[];   // Tone.js note names for melody
+  melodyPhraseBars: number;     // bars between melody phrases (0 = disabled)
+  melodyEnabled:    boolean;
+  padAttack:        number;     // seconds (keep ≤ 2 so chord is audible)
+  padRelease:       number;
+  reverbDecay:      number;
+  masterVolume:     number;     // dB target at user volume = 1
+  description:      string;
 }
+
+// ─── Per-state profiles ───────────────────────────────────────────────────────
 
 export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
   focus: {
-    droneNotes:        ['D2', 'A2'],
-    padNotes:          [['D3','A3','F4'], ['D3','F3','C4'], ['A2','E3','A3'], ['D3','G3','D4']],
-    padIntervalSec:    10,
-    padAttack:         3,
-    padRelease:        5,
-    melodyNotes:       ['D4','E4','F4','G4','A4','C5','D5'],
-    melodyIntervalSec: [4, 9],
-    melodyEnabled:     true,
-    reverbDecay:       5,
-    masterVolume:      -5,
-    description:       'D minor drone — steady focus, sparse melodic movement',
+    bpm: 72,
+    chords: [
+      { voicing:["D3","F3","A3","C4"], bass:"D2", arpNotes:["D4","F4","A4","C5","D5"] },
+      { voicing:["A2","C3","E3","G3"], bass:"A2", arpNotes:["A3","C4","E4","G4","A4"] },
+      { voicing:["C3","E3","G3","B3"], bass:"C3", arpNotes:["C4","E4","G4","B4","C5"] },
+      { voicing:["G2","B2","D3","F3"], bass:"G2", arpNotes:["G3","B3","D4","F4","G4"] },
+    ],
+    barsPerChord: 4, arpeggioSubdiv:"8n", arpeggioEnabled:true, bassEnabled:true,
+    melodyScale:["D4","E4","F4","G4","A4","C5","D5","E5"],
+    melodyPhraseBars:8, melodyEnabled:true,
+    padAttack:1.5, padRelease:4, reverbDecay:4, masterVolume:-5,
+    description:"D Dorian — arpeggio-driven focus flow",
   },
+
   learning: {
-    droneNotes:        ['F2', 'C3'],
-    padNotes:          [['F3','A3','C4'], ['F3','Bb3','D4'], ['C3','G3','C4'], ['F3','A3','Eb4']],
-    padIntervalSec:    9,
-    padAttack:         2.5,
-    padRelease:        4.5,
-    melodyNotes:       ['F4','G4','A4','Bb4','C5','D5','F5'],
-    melodyIntervalSec: [4, 8],
-    melodyEnabled:     true,
-    reverbDecay:       4,
-    masterVolume:      -5,
-    description:       'F major pads — warm and open, supports memory and attention',
+    bpm: 66,
+    chords: [
+      { voicing:["F3","A3","C4","E4"], bass:"F2", arpNotes:["F4","A4","C5","E5","F5"] },
+      { voicing:["C3","E3","G3","B3"], bass:"C3", arpNotes:["C4","E4","G4","B4","C5"] },
+      { voicing:["G3","B3","D4","F4"], bass:"G2", arpNotes:["G3","B3","D4","F4","G4"] },
+      { voicing:["A2","C3","E3","G3"], bass:"A2", arpNotes:["A3","C4","E4","G4","A4"] },
+    ],
+    barsPerChord: 4, arpeggioSubdiv:"8n", arpeggioEnabled:true, bassEnabled:true,
+    melodyScale:["F4","G4","A4","Bb4","C5","D5","F5"],
+    melodyPhraseBars:6, melodyEnabled:true,
+    padAttack:1.2, padRelease:3.5, reverbDecay:4, masterVolume:-5,
+    description:"F major — warm, open, supports memory and learning",
   },
+
   relaxation: {
-    droneNotes:        ['G2', 'D3'],
-    padNotes:          [['G3','B3','D4'], ['G3','C4','E4'], ['D3','A3','D4'], ['E3','G3','B3']],
-    padIntervalSec:    13,
-    padAttack:         4,
-    padRelease:        7,
-    melodyNotes:       ['G4','A4','B4','D5','E5','G5'],
-    melodyIntervalSec: [6, 13],
-    melodyEnabled:     true,
-    reverbDecay:       7,
-    masterVolume:      -6,
-    description:       'G major pastoral — long reverb tails, gentle movement',
+    bpm: 56,
+    chords: [
+      { voicing:["G3","B3","D4","F4"],  bass:"G2", arpNotes:["G4","B4","D5","F5","G5"] },
+      { voicing:["D3","F3","A3","C4"],  bass:"D3", arpNotes:["D4","F4","A4","C5","D5"] },
+      { voicing:["E3","G3","B3","D4"],  bass:"E3", arpNotes:["E4","G4","B4","D5","E5"] },
+      { voicing:["C3","E3","G3","B3"],  bass:"C3", arpNotes:["C4","E4","G4","B4","C5"] },
+    ],
+    barsPerChord: 6, arpeggioSubdiv:"8n", arpeggioEnabled:true, bassEnabled:false,
+    melodyScale:["G4","A4","B4","D5","E5","G5"],
+    melodyPhraseBars:10, melodyEnabled:true,
+    padAttack:2, padRelease:5, reverbDecay:7, masterVolume:-6,
+    description:"G major — gentle arpeggio, long reverb tails",
   },
+
   sleep: {
-    droneNotes:        ['C2', 'G2'],
-    padNotes:          [['C3','E3','G3'], ['C3','F3','G3'], ['G2','D3','G3'], ['C3','E3','A3']],
-    padIntervalSec:    18,
-    padAttack:         7,
-    padRelease:        10,
-    melodyNotes:       [],
-    melodyIntervalSec: [30, 60],
-    melodyEnabled:     false,
-    reverbDecay:       10,
-    masterVolume:      -8,
-    description:       'C major — ultra-slow evolving pads, maximum stillness',
+    bpm: 44,
+    chords: [
+      { voicing:["C3","E3","G3","B3"], bass:"C2", arpNotes:["C4","E4","G4","B4"] },
+      { voicing:["F3","A3","C4","E4"], bass:"F2", arpNotes:["F4","A4","C5","E5"] },
+      { voicing:["A2","C3","E3","G3"], bass:"A2", arpNotes:["A3","C4","E4","G4"] },
+      { voicing:["G2","B2","D3","F3"], bass:"G2", arpNotes:["G3","B3","D4","F4"] },
+    ],
+    barsPerChord: 8, arpeggioSubdiv:"4n", arpeggioEnabled:true, bassEnabled:false,
+    melodyScale:[], melodyPhraseBars:0, melodyEnabled:false,
+    padAttack:4, padRelease:8, reverbDecay:10, masterVolume:-8,
+    description:"C major — slow dreamlike movement, maximum stillness",
   },
+
   'mood-boost': {
-    droneNotes:        ['E2', 'B2'],
-    padNotes:          [['E3','Ab3','B3'], ['E3','Ab3','Db4'], ['Db3','Ab3','E4'], ['B2','Gb3','B3']],
-    padIntervalSec:    7,
-    padAttack:         2,
-    padRelease:        3.5,
-    melodyNotes:       ['E4','Gb4','Ab4','B4','Db5','E5'],
-    melodyIntervalSec: [2, 5],
-    melodyEnabled:     true,
-    reverbDecay:       3.5,
-    masterVolume:      -4,
-    description:       'E major — brighter, more frequent melody for uplift',
+    bpm: 95,
+    chords: [
+      { voicing:["E3","G#3","B3","D#4"],  bass:"E2",  arpNotes:["E4","G#4","B4","D#5","E5"] },
+      { voicing:["A3","C#4","E4","G#4"],  bass:"A2",  arpNotes:["A4","C#5","E5","G#5"]      },
+      { voicing:["B3","D#4","F#4","A4"],  bass:"B2",  arpNotes:["B4","D#5","F#5","A5"]      },
+      { voicing:["C#3","E3","G#3","B3"],  bass:"C#3", arpNotes:["C#5","E5","G#5","B5"]      },
+    ],
+    barsPerChord: 3, arpeggioSubdiv:"16n", arpeggioEnabled:true, bassEnabled:true,
+    melodyScale:["E4","F#4","G#4","A4","B4","C#5","D#5","E5"],
+    melodyPhraseBars:4, melodyEnabled:true,
+    padAttack:0.8, padRelease:2, reverbDecay:3, masterVolume:-4,
+    description:"E major — energetic 16th-note arpeggio, uplifting",
   },
+
   meditation: {
-    droneNotes:        ['A2', 'E3'],
-    padNotes:          [['A2','E3','A3'], ['A2','D3','A3'], ['E2','B2','E3'], ['A2','C3','E3']],
-    padIntervalSec:    18,
-    padAttack:         6,
-    padRelease:        9,
-    melodyNotes:       ['A4','B4','D5','E5','A5'],
-    melodyIntervalSec: [10, 22],
-    melodyEnabled:     true,
-    reverbDecay:       10,
-    masterVolume:      -7,
-    description:       'A drone (432 Hz aligned) — vast reverb, deep stillness',
+    bpm: 50,
+    chords: [
+      { voicing:["A2","E3","A3","C4"], bass:"A1", arpNotes:["A3","C4","E4","A4"] },
+      { voicing:["D3","F3","A3","C4"], bass:"D2", arpNotes:["D4","F4","A4","C5"] },
+      { voicing:["E3","G3","B3","D4"], bass:"E2", arpNotes:["E4","G4","B4","D5"] },
+      { voicing:["A2","C3","E3","G3"], bass:"A2", arpNotes:["A3","C4","E4","G4"] },
+    ],
+    barsPerChord: 8, arpeggioSubdiv:"4n", arpeggioEnabled:true, bassEnabled:false,
+    melodyScale:["A4","C5","D5","E5","G5","A5"],
+    melodyPhraseBars:12, melodyEnabled:true,
+    padAttack:3, padRelease:7, reverbDecay:10, masterVolume:-7,
+    description:"A minor — deep resonance, vast space",
   },
+
   'anxiety-relief': {
-    droneNotes:        ['F2', 'C3'],
-    padNotes:          [['F3','A3','C4'], ['F3','G3','C4'], ['C3','F3','A3'], ['F3','A3','Bb3']],
-    padIntervalSec:    14,
-    padAttack:         5,
-    padRelease:        8,
-    melodyNotes:       ['F4','G4','A4','C5','F5'],
-    melodyIntervalSec: [8, 18],
-    melodyEnabled:     true,
-    reverbDecay:       8,
-    masterVolume:      -6,
-    description:       'Stable F major — slow, predictable movement soothes anxiety',
+    bpm: 54,
+    chords: [
+      { voicing:["F3","A3","C4","E4"], bass:"F2", arpNotes:["F4","A4","C5","E5","F5"] },
+      { voicing:["C3","E3","G3","B3"], bass:"C3", arpNotes:["C4","E4","G4","B4","C5"] },
+      { voicing:["A2","C3","E3","G3"], bass:"A2", arpNotes:["A3","C4","E4","G4","A4"] },
+      { voicing:["G2","B2","D3","F3"], bass:"G2", arpNotes:["G3","B3","D4","F4","G4"] },
+    ],
+    barsPerChord: 6, arpeggioSubdiv:"8n", arpeggioEnabled:true, bassEnabled:false,
+    melodyScale:["F4","G4","A4","C5","D5","F5"],
+    melodyPhraseBars:10, melodyEnabled:true,
+    padAttack:2.5, padRelease:6, reverbDecay:8, masterVolume:-6,
+    description:"F major — steady, predictable movement soothes anxiety",
   },
 };
 
-// ─── Engine ──────────────────────────────────────────────────────────────────
+// ─── Engine ───────────────────────────────────────────────────────────────────
 
 export class AmbientMusicEngine {
-  private Tone: any  = null;
-  private reverb: any     = null;
-  private delay: any      = null;
-  private masterVol: any  = null;
-  private padFilter: any  = null;
+  private Tone: any = null;
 
-  private droneOscA: any  = null;
-  private droneOscB: any  = null;
-  private droneGain: any  = null;
+  // Instruments
+  private arpeggioSynth: any = null;
+  private padSynth:      any = null;
+  private melodySynth:   any = null;
+  private bassSynth:     any = null;
 
-  private padSynth: any   = null;
-  private padInterval: ReturnType<typeof setInterval>  | null = null;
-  private padChordIdx = 0;
+  // Transport-synchronized patterns / loops
+  private arpeggioPattern: any = null;   // Tone.Pattern → upDown arpeggio
+  private chordLoop:       any = null;   // Tone.Loop  → chord change every bar
+  private melodyLoop:      any = null;   // Tone.Loop  → melody phrase every N bars
+  private bassLoop:        any = null;   // Tone.Loop  → bass pulse every beat
 
-  private melodySynth: any = null;
-  private melodyTimeout: ReturnType<typeof setTimeout> | null = null;
+  // Effects
+  private arpDelay:    any = null;
+  private arpReverb:   any = null;
+  private padFilter:   any = null;
+  private padReverb:   any = null;
+  private melReverb:   any = null;
+  private masterVol:   any = null;
 
-  private profile: MusicProfile | null = null;
+  private profile:   MusicProfile | null = null;
+  private chordIdx = 0;
+  private barCount = 0;
   private _isPlaying = false;
-  private _volume = 0.7;
+  private _volume    = 0.7;
+
+  // ── Public API ──────────────────────────────────────────────────────────────
 
   async init(mentalState: MentalState): Promise<void> {
     this.Tone   = await import('tone');
@@ -167,165 +198,269 @@ export class AmbientMusicEngine {
     const p      = this.profile;
 
     await T.start();
-    T.getTransport().bpm.value = 70;
+    T.getTransport().bpm.value = p.bpm;
 
-    // ── Effects chain ──────────────────────────────────────────────────────
-    this.masterVol = new T.Volume(p.masterVolume);
+    // ── Master ──────────────────────────────────────────────────────────────
+    this.masterVol = new T.Volume(-60); // start silent; play() fades in
     this.masterVol.toDestination();
 
-    // Less wet reverb so direct signal stays present
-    this.reverb = new T.Reverb({ decay: p.reverbDecay, wet: 0.48, preDelay: 0.03 });
-    await this.reverb.ready;
-    this.reverb.connect(this.masterVol);
+    // ── Pad effects: lowpass → reverb ───────────────────────────────────────
+    this.padReverb = new T.Reverb({ decay: p.reverbDecay, wet: 0.55, preDelay: 0.02 });
+    await this.padReverb.ready;
+    this.padReverb.connect(this.masterVol);
 
-    // Gentle delay — sits behind the reverb
-    this.delay = new T.FeedbackDelay({ delayTime: '8n', feedback: 0.18, wet: 0.10 });
-    this.delay.connect(this.reverb);
+    this.padFilter = new T.Filter({ frequency: 1800, type: 'lowpass', rolloff: -24 });
+    this.padFilter.connect(this.padReverb);
 
-    // ── Drone ──────────────────────────────────────────────────────────────
-    this.droneGain = new T.Gain(0).connect(this.delay);
+    // ── Arpeggio effects: delay → reverb ────────────────────────────────────
+    this.arpReverb = new T.Reverb({ decay: p.reverbDecay * 0.6, wet: 0.45 });
+    await this.arpReverb.ready;
+    this.arpReverb.connect(this.masterVol);
 
-    this.droneOscA = new T.Oscillator({
-      frequency: hz(p.droneNotes[0]),
-      type:      'triangle',
-      volume:    -12,
-    }).connect(this.droneGain);
+    this.arpDelay = new T.FeedbackDelay({ delayTime: '8n', feedback: 0.3, wet: 0.25 });
+    this.arpDelay.connect(this.arpReverb);
 
-    const droneB = p.droneNotes[1] ?? p.droneNotes[0];
-    this.droneOscB = new T.Oscillator({
-      frequency: hz(droneB),
-      type:      'triangle',
-      detune:    3,
-      volume:    -16,
-    }).connect(this.droneGain);
+    // ── Melody reverb ────────────────────────────────────────────────────────
+    this.melReverb = new T.Reverb({ decay: p.reverbDecay * 0.5, wet: 0.5 });
+    await this.melReverb.ready;
+    this.melReverb.connect(this.masterVol);
 
-    // ── Pad — fatsawtooth for rich, lush chords ────────────────────────────
-    // Lowpass filter softens the brightness of sawtooth
-    this.padFilter = new T.Filter({ frequency: 1400, type: 'lowpass', rolloff: -24 });
-    this.padFilter.connect(this.delay);
-
+    // ── Pad synth — fatsawtooth for rich, lush chords ───────────────────────
     this.padSynth = new T.PolySynth(T.Synth, {
       oscillator: { type: 'fatsawtooth', count: 2, spread: 18 },
-      envelope: {
-        attack:  p.padAttack,
-        decay:   1.5,
-        sustain: 0.82,
-        release: p.padRelease,
-      },
-      volume: -8,  // much louder than old -14
+      envelope: { attack: p.padAttack, decay: 1.2, sustain: 0.85, release: p.padRelease },
+      volume: -10,
     });
     this.padSynth.connect(this.padFilter);
 
-    // ── Melody — triangle, clearly audible ─────────────────────────────────
-    if (p.melodyEnabled) {
+    // ── Arpeggio synth — triangle, clean, melodic ───────────────────────────
+    if (p.arpeggioEnabled) {
+      this.arpeggioSynth = new T.PolySynth(T.Synth, {
+        oscillator: { type: 'triangle' },
+        envelope: { attack: 0.02, decay: 0.15, sustain: 0.25, release: 2.5 },
+        volume: -8,   // arpeggio is the main melody vehicle — keep it present
+      });
+      this.arpeggioSynth.connect(this.arpDelay);
+    }
+
+    // ── Bass synth — sine, deep, subtle ─────────────────────────────────────
+    if (p.bassEnabled) {
+      this.bassSynth = new T.Synth({
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.05, decay: 0.25, sustain: 0.5, release: 0.4 },
+        volume: -14,
+      });
+      this.bassSynth.connect(this.masterVol);
+    }
+
+    // ── Melody synth — triangle, expressive ─────────────────────────────────
+    if (p.melodyEnabled && p.melodyScale.length > 0) {
       this.melodySynth = new T.Synth({
         oscillator: { type: 'triangle' },
-        envelope: {
-          attack:  0.6,
-          decay:   0.8,
-          sustain: 0.55,
-          release: 2.5,
-        },
-        volume: -10,  // was -22 — now clearly audible
+        envelope: { attack: 0.25, decay: 0.6, sustain: 0.45, release: 2.2 },
+        volume: -12,
       });
-      this.melodySynth.connect(this.reverb); // skip delay for cleaner melody
+      this.melodySynth.connect(this.melReverb);
     }
+
+    // ── Build Transport-synchronized patterns ───────────────────────────────
+    this._buildPatterns();
   }
 
   play(): void {
-    if (this._isPlaying || !this.profile) return;
+    if (this._isPlaying || !this.profile || !this.Tone) return;
     this._isPlaying = true;
 
-    this.droneOscA.start();
-    this.droneOscB.start();
-    this.droneGain.gain.rampTo(1, 3);
+    // Fade in master volume
+    this.masterVol?.volume.rampTo(this._dbAtVolume(), 2);
 
-    this._playPadChord();
-    this.padInterval = setInterval(
-      () => this._playPadChord(),
-      this.profile.padIntervalSec * 1000
-    );
+    // Trigger initial pad chord immediately
+    this._triggerPadChord(this.profile.chords[0], this.Tone.now() + 0.1);
 
-    if (this.profile.melodyEnabled) this._scheduleMelodyNote();
+    // Start Transport — this drives ALL Tone.Pattern / Tone.Loop instances
+    const T = this.Tone;
+    T.getTransport().start('+0.05');
+
+    // Start patterns at Transport position 0
+    this.arpeggioPattern?.start(0);
+    this.chordLoop?.start(0);
+    this.bassLoop?.start(0);
+
+    // Delay first melody phrase so the chord/arp establish themselves first
+    if (this.melodyLoop && this.profile.melodyEnabled) {
+      const delayBars = Math.max(4, this.profile.melodyPhraseBars);
+      this.melodyLoop.start(`${delayBars}m`);
+    }
   }
 
   pause(): void {
     if (!this._isPlaying) return;
     this._isPlaying = false;
-    this.droneGain?.gain.rampTo(0, 2);
-    this.padSynth?.releaseAll();
-    if (this.padInterval)   { clearInterval(this.padInterval);   this.padInterval   = null; }
-    if (this.melodyTimeout) { clearTimeout(this.melodyTimeout);  this.melodyTimeout = null; }
+    // Mute without stopping Transport — chord position is preserved for resume
+    this.masterVol?.volume.rampTo(-60, 1.5);
   }
 
   resume(): void {
     if (this._isPlaying || !this.profile) return;
-    this.play();
+    this._isPlaying = true;
+    this.masterVol?.volume.rampTo(this._dbAtVolume(), 1.5);
   }
 
   /** volume 0–1 */
   setVolume(v: number): void {
-    this._volume = v;
-    if (this.masterVol && this.profile) {
-      // Linear dB interpolation: v=0 → -60dB, v=1 → masterVolume
-      const db = -60 + v * (this.profile.masterVolume + 60);
-      this.masterVol.volume.rampTo(Math.max(-60, Math.min(0, db)), 0.5);
+    this._volume = Math.max(0, Math.min(1, v));
+    if (this.masterVol && this.profile && this._isPlaying) {
+      this.masterVol.volume.rampTo(this._dbAtVolume(), 0.4);
     }
   }
 
   get isPlaying() { return this._isPlaying; }
   get volume()    { return this._volume; }
 
-  private _playPadChord(): void {
-    if (!this.profile || !this.padSynth) return;
-    const chords = this.profile.padNotes;
-    this.padChordIdx = (this.padChordIdx + 1) % chords.length;
-    const chord = chords[this.padChordIdx];
-    const freqs = chord.map(hz);
+  dispose(): void {
+    this._isPlaying = false;
+    try { this.Tone?.getTransport().stop(); } catch { /* ignore */ }
 
-    // Release old chord, wait a moment, then attack new chord
-    this.padSynth.releaseAll();
-    const transitionMs = Math.min(1800, this.profile.padRelease * 250);
-    freqs.forEach((f: number, i: number) => {
-      setTimeout(() => {
+    this.arpeggioPattern?.stop(0);
+    this.chordLoop?.stop(0);
+    this.bassLoop?.stop(0);
+    this.melodyLoop?.stop(0);
+
+    setTimeout(() => {
+      try {
+        this.arpeggioPattern?.dispose();
+        this.chordLoop?.dispose();
+        this.bassLoop?.dispose();
+        this.melodyLoop?.dispose();
+        this.arpeggioSynth?.dispose();
+        this.padSynth?.dispose();
+        this.melodySynth?.dispose();
+        this.bassSynth?.dispose();
+        this.arpDelay?.dispose();
+        this.arpReverb?.dispose();
+        this.padFilter?.dispose();
+        this.padReverb?.dispose();
+        this.melReverb?.dispose();
+        this.masterVol?.dispose();
+      } catch { /* ignore */ }
+    }, 500);
+  }
+
+  // ── Private ─────────────────────────────────────────────────────────────────
+
+  private _buildPatterns(): void {
+    if (!this.profile || !this.Tone) return;
+    const T = this.Tone;
+    const p = this.profile;
+
+    // ── Arpeggio: Tone.Pattern "upDown" — the main melodic engine ────────────
+    if (p.arpeggioEnabled && this.arpeggioSynth) {
+      this.arpeggioPattern = new T.Pattern(
+        (time: number, note: string) => {
+          if (!this._isPlaying) return;
+          this.arpeggioSynth.triggerAttackRelease(note, p.arpeggioSubdiv, time);
+        },
+        [...p.chords[0].arpNotes],
+        'upDown'
+      );
+      this.arpeggioPattern.interval = p.arpeggioSubdiv;
+    }
+
+    // ── Chord change loop — fires every bar, rotates chord every N bars ──────
+    this.barCount = 0;
+    this.chordIdx = 0;
+    this.chordLoop = new T.Loop((time: number) => {
+      this.barCount++;
+      if (this.barCount % p.barsPerChord === 0) {
+        this.chordIdx = (this.chordIdx + 1) % p.chords.length;
+        const chord = p.chords[this.chordIdx];
+
+        // Update arpeggio note pool so it tracks the new chord
+        if (this.arpeggioPattern) {
+          this.arpeggioPattern.values = [...chord.arpNotes];
+        }
+
+        // Trigger new pad voicing
+        this._triggerPadChord(chord, time);
+
+        // Bass hit on chord change
+        if (this.bassSynth) {
+          this.bassSynth.triggerAttackRelease(chord.bass, '4n', time);
+        }
+      }
+    }, '1m'); // fires every 1 measure
+
+    // ── Bass loop — pulse on beats 1 & 3 for rhythmic grounding ──────────────
+    if (p.bassEnabled && this.bassSynth) {
+      let beat = 0;
+      this.bassLoop = new T.Loop((time: number) => {
         if (!this._isPlaying) return;
-        try { this.padSynth.triggerAttack(f); } catch { /* disposed */ }
-      }, transitionMs + i * 120);
+        if (beat % 2 === 0) { // beats 1 and 3 of a 4-beat bar
+          const chord = p.chords[this.chordIdx];
+          this.bassSynth.triggerAttackRelease(chord.bass, '8n', time);
+        }
+        beat++;
+      }, '4n'); // fires every quarter note
+    }
+
+    // ── Melody loop — plays a 4–6 note stepwise phrase every N bars ──────────
+    if (p.melodyEnabled && this.melodySynth && p.melodyScale.length > 0) {
+      this.melodyLoop = new T.Loop((time: number) => {
+        if (!this._isPlaying) return;
+        this._playMelodyPhrase(time);
+      }, `${p.melodyPhraseBars}m`);
+    }
+  }
+
+  /** Trigger a pad chord voicing with slight note stagger */
+  private _triggerPadChord(chord: ChordDef, contextTime: number): void {
+    if (!this.padSynth) return;
+    this.padSynth.releaseAll();
+    chord.voicing.forEach((note, i) => {
+      const t = contextTime + i * 0.09;
+      try { this.padSynth.triggerAttack(note, t); } catch { /* disposed */ }
     });
   }
 
-  private _scheduleMelodyNote(): void {
-    if (!this.profile?.melodyEnabled || !this._isPlaying) return;
-    const [minS, maxS] = this.profile.melodyIntervalSec;
-    const delayMs = (minS + Math.random() * (maxS - minS)) * 1000;
+  /** Generate a stepwise 4–6 note melodic phrase */
+  private _playMelodyPhrase(startTime: number): void {
+    if (!this.profile || !this.melodySynth) return;
+    const scale = this.profile.melodyScale;
+    if (!scale.length) return;
 
-    this.melodyTimeout = setTimeout(() => {
-      if (!this._isPlaying || !this.profile) return;
-      const notes = this.profile.melodyNotes;
-      const note  = notes[Math.floor(Math.random() * notes.length)];
+    const qn  = 60 / this.profile.bpm;  // quarter-note duration in seconds
+    const num = 4 + Math.floor(Math.random() * 3); // 4–6 notes
+
+    // Start near the center of the scale
+    let idx = Math.floor(scale.length / 2) + Math.floor(Math.random() * 2) - 1;
+    idx     = Math.max(0, Math.min(scale.length - 1, idx));
+
+    let elapsed = 0;
+    for (let i = 0; i < num; i++) {
+      const noteTime = startTime + elapsed * qn;
+      const dur      = Math.random() < 0.35 ? '8n' : '4n'; // mix of 8th and quarter notes
+      const durSec   = dur === '8n' ? qn * 0.5 : qn;
+
       try {
-        // Duration varies: quarter or half note feel
-        const dur = Math.random() > 0.4 ? '2n' : '4n';
-        this.melodySynth?.triggerAttackRelease(hz(note), dur);
+        this.melodySynth.triggerAttackRelease(scale[idx], dur, noteTime);
       } catch { /* disposed */ }
-      this._scheduleMelodyNote();
-    }, delayMs);
+
+      elapsed += durSec / qn; // advance time
+
+      // Stepwise motion with occasional small leap
+      if (i < num - 1) {
+        const r = Math.random();
+        const step = r < 0.55 ? (Math.random() < 0.5 ? 1 : -1)   // step ±1
+                   : r < 0.85 ? (Math.random() < 0.5 ? 2 : -2)   // leap ±2
+                   :             0;                                 // repeat
+        idx = Math.max(0, Math.min(scale.length - 1, idx + step));
+      }
+    }
   }
 
-  dispose(): void {
-    this.pause();
-    setTimeout(() => {
-      try {
-        this.droneOscA?.dispose();
-        this.droneOscB?.dispose();
-        this.droneGain?.dispose();
-        this.padSynth?.dispose();
-        this.padFilter?.dispose();
-        this.melodySynth?.dispose();
-        this.delay?.dispose();
-        this.reverb?.dispose();
-        this.masterVol?.dispose();
-      } catch { /* ignore */ }
-    }, 400);
+  private _dbAtVolume(): number {
+    if (!this.profile || this._volume <= 0) return -60;
+    // Linear: v=1 → profile.masterVolume, v=0 → -60
+    return -60 + this._volume * (this.profile.masterVolume + 60);
   }
 }
