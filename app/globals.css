@@ -1,33 +1,52 @@
-@import "tailwindcss";
-
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@300;400;600;700&display=swap');
 
+@import "tailwindcss";
+
+/* ── Light theme (default) ───────────────────────────────────────── */
 :root {
-  --background: #07070f;
-  --foreground: #f0f0ff;
-  --glass: rgba(255, 255, 255, 0.04);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-hover: rgba(255, 255, 255, 0.08);
+  --bg:          #f5f3ef;
+  --bg-2:        #eeeae3;
+  --surface:     rgba(255, 255, 255, 0.7);
+  --surface-2:   rgba(255, 255, 255, 0.45);
+  --border:      rgba(0, 0, 0, 0.07);
+  --border-2:    rgba(0, 0, 0, 0.04);
+  --text:        #18181b;
+  --text-2:      rgba(24, 24, 27, 0.55);
+  --text-3:      rgba(24, 24, 27, 0.30);
+  --shadow:      0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+}
+
+/* ── Dark theme ──────────────────────────────────────────────────── */
+.dark {
+  --bg:          #07070f;
+  --bg-2:        #0d0d1a;
+  --surface:     rgba(255, 255, 255, 0.04);
+  --surface-2:   rgba(255, 255, 255, 0.02);
+  --border:      rgba(255, 255, 255, 0.08);
+  --border-2:    rgba(255, 255, 255, 0.04);
+  --text:        #f0f0ff;
+  --text-2:      rgba(240, 240, 255, 0.50);
+  --text-3:      rgba(240, 240, 255, 0.25);
+  --shadow:      0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
 }
 
 * { box-sizing: border-box; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--text);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
-h1, h2, h3 {
-  font-family: 'Sora', 'Inter', sans-serif;
-}
+h1, h2, h3 { font-family: 'Sora', 'Inter', sans-serif; }
 
 /* ── Scrollbar ───────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
 /* ── Range inputs ────────────────────────────────────────────────── */
 input[type='range'] {
@@ -35,77 +54,138 @@ input[type='range'] {
   appearance: none;
   height: 3px;
   border-radius: 2px;
-  background: rgba(255,255,255,0.12);
+  background: var(--border);
   cursor: pointer;
   outline: none;
 }
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 14px; height: 14px;
   border-radius: 50%;
-  background: white;
+  background: var(--text);
   cursor: pointer;
-  box-shadow: 0 0 8px rgba(255,255,255,0.3);
   transition: transform 0.1s;
 }
-input[type='range']::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-}
+input[type='range']::-webkit-slider-thumb:hover { transform: scale(1.2); }
 
-/* ── Glassmorphism utility ───────────────────────────────────────── */
+/* ── Glass surface ───────────────────────────────────────────────── */
 .glass {
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.glass-2 {
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
-/* ── Animated background orb ─────────────────────────────────────── */
+/* ── Animated background orbs ────────────────────────────────────── */
 @keyframes orb-drift {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33%       { transform: translate(30px, -20px) scale(1.05); }
-  66%       { transform: translate(-20px, 15px) scale(0.97); }
+  0%,100% { transform: translate(0,0) scale(1); }
+  33%      { transform: translate(30px,-20px) scale(1.05); }
+  66%      { transform: translate(-20px,15px) scale(0.97); }
 }
-
 @keyframes orb-drift-2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  40%       { transform: translate(-40px, 20px) scale(1.08); }
-  70%       { transform: translate(20px, -30px) scale(0.95); }
+  0%,100% { transform: translate(0,0) scale(1); }
+  40%     { transform: translate(-40px,20px) scale(1.08); }
+  70%     { transform: translate(20px,-30px) scale(0.95); }
 }
-
-.orb-1 { animation: orb-drift 18s ease-in-out infinite; }
+.orb-1 { animation: orb-drift   18s ease-in-out infinite; }
 .orb-2 { animation: orb-drift-2 24s ease-in-out infinite; }
 
-/* ── Pulse animation for player orb ─────────────────────────────── */
-@keyframes pulse-ring {
-  0%   { transform: scale(0.95); opacity: 0.7; }
-  50%  { transform: scale(1.08); opacity: 0.3; }
-  100% { transform: scale(0.95); opacity: 0.7; }
-}
-
-@keyframes rotate-slow {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-.pulse-ring { animation: pulse-ring 3s ease-in-out infinite; }
-.rotate-slow { animation: rotate-slow 20s linear infinite; }
-
-/* ── Fade in ─────────────────────────────────────────────────────── */
+/* ── Fade up ─────────────────────────────────────────────────────── */
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity:0; transform:translateY(12px); }
+  to   { opacity:1; transform:translateY(0); }
 }
-.fade-up { animation: fade-up 0.5s ease forwards; }
+.fade-up { animation: fade-up 0.45s ease forwards; }
 
-/* ── Shimmer loading ─────────────────────────────────────────────── */
-@keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+/* ── Light-mode remapping ────────────────────────────────────────── */
+/* All dark-mode white-opacity Tailwind classes → dark-on-light.    */
+/* Saves touching every component file.                              */
+
+html:not(.dark) body          { background: var(--bg) !important; color: var(--text) !important; }
+html:not(.dark) ::placeholder { color: rgba(24,24,27,.28); }
+
+/* text */
+html:not(.dark) .text-white           { color: rgba(24,24,27,1)    !important; }
+html:not(.dark) .text-white\/90       { color: rgba(24,24,27,.93)  !important; }
+html:not(.dark) .text-white\/85       { color: rgba(24,24,27,.88)  !important; }
+html:not(.dark) .text-white\/80       { color: rgba(24,24,27,.85)  !important; }
+html:not(.dark) .text-white\/70       { color: rgba(24,24,27,.75)  !important; }
+html:not(.dark) .text-white\/65       { color: rgba(24,24,27,.70)  !important; }
+html:not(.dark) .text-white\/60       { color: rgba(24,24,27,.65)  !important; }
+html:not(.dark) .text-white\/55       { color: rgba(24,24,27,.60)  !important; }
+html:not(.dark) .text-white\/50       { color: rgba(24,24,27,.55)  !important; }
+html:not(.dark) .text-white\/45       { color: rgba(24,24,27,.50)  !important; }
+html:not(.dark) .text-white\/40       { color: rgba(24,24,27,.45)  !important; }
+html:not(.dark) .text-white\/35       { color: rgba(24,24,27,.40)  !important; }
+html:not(.dark) .text-white\/30       { color: rgba(24,24,27,.35)  !important; }
+html:not(.dark) .text-white\/28       { color: rgba(24,24,27,.32)  !important; }
+html:not(.dark) .text-white\/25       { color: rgba(24,24,27,.28)  !important; }
+html:not(.dark) .text-white\/20       { color: rgba(24,24,27,.24)  !important; }
+html:not(.dark) .text-white\/18       { color: rgba(24,24,27,.22)  !important; }
+
+/* hover text */
+html:not(.dark) .hover\:text-white:hover       { color: rgba(24,24,27,1)   !important; }
+html:not(.dark) .hover\:text-white\/85:hover   { color: rgba(24,24,27,.88) !important; }
+html:not(.dark) .hover\:text-white\/80:hover   { color: rgba(24,24,27,.85) !important; }
+html:not(.dark) .hover\:text-white\/70:hover   { color: rgba(24,24,27,.75) !important; }
+html:not(.dark) .hover\:text-white\/55:hover   { color: rgba(24,24,27,.60) !important; }
+
+/* group-hover text */
+html:not(.dark) .group:hover .group-hover\:text-white\/85 { color: rgba(24,24,27,.88) !important; }
+html:not(.dark) .group:hover .group-hover\:text-white\/40 { color: rgba(24,24,27,.45) !important; }
+
+/* backgrounds */
+html:not(.dark) .bg-white\/\[0\.03\]  { background-color: rgba(24,24,27,.03) !important; }
+html:not(.dark) .bg-white\/\[0\.06\]  { background-color: rgba(24,24,27,.06) !important; }
+html:not(.dark) .bg-white\/3          { background-color: rgba(24,24,27,.03) !important; }
+html:not(.dark) .bg-white\/4          { background-color: rgba(24,24,27,.04) !important; }
+html:not(.dark) .bg-white\/5          { background-color: rgba(24,24,27,.05) !important; }
+html:not(.dark) .bg-white\/7          { background-color: rgba(24,24,27,.07) !important; }
+html:not(.dark) .bg-white\/8          { background-color: rgba(24,24,27,.08) !important; }
+html:not(.dark) .bg-white\/10         { background-color: rgba(24,24,27,.10) !important; }
+html:not(.dark) .bg-white\/12         { background-color: rgba(24,24,27,.12) !important; }
+html:not(.dark) .bg-white\/15         { background-color: rgba(24,24,27,.15) !important; }
+html:not(.dark) .bg-white\/18         { background-color: rgba(24,24,27,.18) !important; }
+
+/* hover backgrounds */
+html:not(.dark) .hover\:bg-white\/\[0\.06\]:hover  { background-color: rgba(24,24,27,.06) !important; }
+html:not(.dark) .hover\:bg-white\/4:hover           { background-color: rgba(24,24,27,.04) !important; }
+html:not(.dark) .hover\:bg-white\/7:hover           { background-color: rgba(24,24,27,.07) !important; }
+html:not(.dark) .hover\:bg-white\/8:hover           { background-color: rgba(24,24,27,.08) !important; }
+html:not(.dark) .hover\:bg-white\/15:hover          { background-color: rgba(24,24,27,.15) !important; }
+html:not(.dark) .hover\:bg-white\/18:hover          { background-color: rgba(24,24,27,.18) !important; }
+
+/* borders */
+html:not(.dark) .border-white\/\[0\.07\] { border-color: rgba(24,24,27,.07) !important; }
+html:not(.dark) .border-white\/5         { border-color: rgba(24,24,27,.05) !important; }
+html:not(.dark) .border-white\/8         { border-color: rgba(24,24,27,.08) !important; }
+html:not(.dark) .border-white\/10        { border-color: rgba(24,24,27,.10) !important; }
+html:not(.dark) .border-white\/15        { border-color: rgba(24,24,27,.15) !important; }
+html:not(.dark) .border-white\/20        { border-color: rgba(24,24,27,.20) !important; }
+html:not(.dark) .border-white\/25        { border-color: rgba(24,24,27,.25) !important; }
+html:not(.dark) .border-white\/30        { border-color: rgba(24,24,27,.30) !important; }
+
+/* hover borders */
+html:not(.dark) .hover\:border-white\/15:hover { border-color: rgba(24,24,27,.15) !important; }
+html:not(.dark) .hover\:border-white\/20:hover { border-color: rgba(24,24,27,.20) !important; }
+
+/* spinner */
+html:not(.dark) .border-t-white    { border-top-color:  rgba(24,24,27,1)   !important; }
+html:not(.dark) .border-t-white\/60{ border-top-color:  rgba(24,24,27,.60) !important; }
+
+/* MoodSelector selected state uses bg-white + text-black — invert for light */
+html:not(.dark) .bg-white.text-black  {
+  background-color: rgba(24,24,27,.92) !important;
+  color: #f5f3ef !important;
 }
-.shimmer {
-  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite;
-}
+
+/* aura orbs — make them warmer/more vivid in light mode */
+html:not(.dark) .bg-violet-600\/10 { background-color: rgba(139,92,246,.12) !important; }
+html:not(.dark) .bg-cyan-500\/8    { background-color: rgba(6,182,212,.10)  !important; }
+html:not(.dark) .bg-indigo-500\/6  { background-color: rgba(99,102,241,.08) !important; }

@@ -8,7 +8,6 @@ import { NeuralOrb } from '@/components/NeuralOrb';
 import { SciencePanel } from '@/components/SciencePanel';
 import { MENTAL_STATE_META } from '@/lib/brainwave-science';
 
-// Per-state background aura color for the player page
 const STATE_BG: Record<string, string> = {
   focus:            'from-indigo-950/60 via-transparent',
   learning:         'from-violet-950/60 via-transparent',
@@ -42,7 +41,8 @@ function useTimer(isPlaying: boolean) {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isPlaying]);
 
-  const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  const fmt = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   return fmt(elapsed);
 }
 
@@ -107,8 +107,6 @@ export default function PlayerPage() {
             <p className="text-xs text-white/30 tracking-widest uppercase">{meta.label}</p>
             <h1 className="text-2xl font-bold text-white">{track.title}</h1>
             <p className="text-sm text-white/40">{track.duration} min · {track.intensity}</p>
-
-            {/* Timer */}
             <div className="pt-1">
               <span className="font-mono text-2xl font-light text-white/70 tabular-nums tracking-wider">
                 {elapsed}
@@ -117,25 +115,25 @@ export default function PlayerPage() {
           </div>
         </div>
 
-        {/* Mixer toggle + mixer */}
+        {/* Single persistent AudioPlayer — always mounted to keep audio engines alive.
+            compact=true hides mixer/soundscape UI while keeping play button visible. */}
         <div className="w-full space-y-3">
+          {/* AudioPlayer is always rendered — toggling compact never unmounts engines */}
+          <AudioPlayer
+            track={track}
+            onPlayingChange={setIsPlaying}
+            compact={!showMixer}
+          />
+
+          {/* Expand/collapse toggle below the player */}
           <button
             onClick={() => setShowMixer((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 glass rounded-2xl text-sm text-white/50 hover:text-white/70 transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 glass rounded-2xl text-xs text-white/35 hover:text-white/60 transition-colors"
           >
-            <span>🎚️ Mixer & Soundscape</span>
-            <span className="text-white/30 text-xs">{showMixer ? '▲ hide' : '▼ show'}</span>
+            <span>🎚️</span>
+            <span>{showMixer ? 'Hide mixer & soundscape' : 'Show mixer & soundscape'}</span>
+            <span className="text-white/20">{showMixer ? '▲' : '▼'}</span>
           </button>
-
-          {showMixer && (
-            <div className="fade-up">
-              <AudioPlayer track={track} onPlayingChange={setIsPlaying} />
-            </div>
-          )}
-
-          {!showMixer && (
-            <AudioPlayerMinimal track={track} onPlayingChange={setIsPlaying} />
-          )}
         </div>
 
         {/* Science panel */}
@@ -160,17 +158,6 @@ export default function PlayerPage() {
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// Minimal player strip shown when mixer is collapsed
-function AudioPlayerMinimal({ track, onPlayingChange }: { track: GeneratedTrack; onPlayingChange: (v: boolean) => void }) {
-  // Just re-render the full AudioPlayer invisibly and expose controls
-  // For simplicity, show the full AudioPlayer but styled as minimal
-  return (
-    <div className="w-full">
-      <AudioPlayer track={track} onPlayingChange={onPlayingChange} />
     </div>
   );
 }

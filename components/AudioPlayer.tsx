@@ -4,11 +4,13 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import type { GeneratedTrack } from '@/types';
 import { FREQUENCY_PROFILES } from '@/lib/brainwave-science';
 import {
-  SOUNDSCAPE_LIBRARY,
-  CATEGORY_LABELS,
-  DEFAULT_SOUNDSCAPE,
-  type SoundCategory,
-} from '@/lib/ambient-tracks';
+  NoiseEngine,
+  NOISE_LIBRARY,
+  NOISE_CATEGORY_LABELS,
+  DEFAULT_NOISE,
+  type NoiseSoundscape,
+  type NoiseCategory,
+} from '@/lib/noise-engine';
 import { BrainWaveEngine } from '@/lib/audio-engine';
 import { AmbientMusicEngine, MUSIC_PROFILES } from '@/lib/ambient-music-engine';
 import { cn } from '@/lib/utils';
@@ -16,41 +18,45 @@ import { cn } from '@/lib/utils';
 interface Props {
   track: GeneratedTrack;
   onPlayingChange?: (playing: boolean) => void;
+  compact?: boolean; // hides mixer + soundscape, shows only play button
 }
 
-const CATEGORIES = Object.keys(CATEGORY_LABELS) as SoundCategory[];
+const NOISE_CATEGORIES = Object.keys(NOISE_CATEGORY_LABELS) as NoiseCategory[];
 
-export function AudioPlayer({ track, onPlayingChange }: Props) {
+export function AudioPlayer({ track, onPlayingChange, compact = false }: Props) {
   const binauralRef = useRef<BrainWaveEngine | null>(null);
-  const musicRef = useRef<AmbientMusicEngine | null>(null);
+  const musicRef    = useRef<AmbientMusicEngine | null>(null);
+  const noiseRef    = useRef<NoiseEngine | null>(null);
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState('');
-  const [activeCategory, setActiveCategory] = useState<SoundCategory>('rain');
+  const [isPlaying,   setIsPlaying]   = useState(false);
+  const [ready,       setReady]       = useState(false);
+  const [error,       setError]       = useState('');
+  const [activeCategory, setActiveCategory] = useState<NoiseCategory>('rain');
 
-  const [binauralVol, setBinauralVol] = useState(0.25);
-  const [musicVol, setMusicVol] = useState(0.6);
-  const [natureVol, setNatureVol] = useState(0.5);
-  const [beatHz, setBeatHz] = useState(FREQUENCY_PROFILES[track.mentalState].hz);
+  const [binauralVol, setBinauralVol] = useState(0.20);
+  const [musicVol,    setMusicVol]    = useState(0.65);
+  const [natureVol,   setNatureVol]   = useState(0.50);
+  const [beatHz,      setBeatHz]      = useState(FREQUENCY_PROFILES[track.mentalState].hz);
 
-  const defaultId = DEFAULT_SOUNDSCAPE[track.mentalState] ?? SOUNDSCAPE_LIBRARY[0].id;
-  const [selectedId, setSelectedId] = useState(defaultId);
-  const selectedTrack = SOUNDSCAPE_LIBRARY.find((s) => s.id === selectedId) ?? SOUNDSCAPE_LIBRARY[0];
-  const visibleSounds = SOUNDSCAPE_LIBRARY.filter((s) => s.category === activeCategory);
-  const musicProfile = MUSIC_PROFILES[track.mentalState];
+  const defaultNoise  = DEFAULT_NOISE[track.mentalState] ?? 'rain';
+  const [selectedId,  setSelectedId]  = useState<NoiseSoundscape>(defaultNoise);
+  const selectedItem  = NOISE_LIBRARY.find((s) => s.id === selectedId) ?? NOISE_LIBRARY[0];
+  const visibleSounds = NOISE_LIBRARY.filter((s) => s.category === activeCategory);
+  const musicProfile  = MUSIC_PROFILES[track.mentalState];
 
   useEffect(() => {
-    setActiveCategory(selectedTrack.category);
+    setActiveCategory(selectedItem.category);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     binauralRef.current = new BrainWaveEngine();
-    musicRef.current = new AmbientMusicEngine();
+    musicRef.current    = new AmbientMusicEngine();
+    noiseRef.current    = new NoiseEngine();
     return () => {
       binauralRef.current?.dispose();
       musicRef.current?.dispose();
+      noiseRef.current?.dispose();
     };
   }, []);
 
@@ -59,20 +65,25 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
     try {
       if (!ready) {
         const binaural = binauralRef.current!;
-        const music = musicRef.current!;
+        const music    = musicRef.current!;
+        const noise    = noiseRef.current!;
 
+        // Binaural beats
         await binaural.init();
         binaural.setBinauralBeat(beatHz, 200);
         binaural.setBinauralVolume(binauralVol);
-        binaural.setAmbientVolume(0);
         binaural.play();
 
+        // Generative music
         await music.init(track.mentalState);
         music.setVolume(musicVol);
         music.play();
 
-        binaural.setAmbientVolume(natureVol);
-        await binaural.setAmbient(selectedTrack.url);
+        // Nature soundscape (Tone.js noise — never loops)
+        await noise.init();
+        await noise.setSoundscape(selectedId);
+        noise.setVolume(natureVol);
+        noise.play();
 
         setReady(true);
         setIsPlaying(true);
@@ -80,11 +91,13 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
       } else if (isPlaying) {
         binauralRef.current?.pause();
         musicRef.current?.pause();
+        noiseRef.current?.pause();
         setIsPlaying(false);
         onPlayingChange?.(false);
       } else {
         binauralRef.current?.resume();
         musicRef.current?.resume();
+        noiseRef.current?.resume();
         setIsPlaying(true);
         onPlayingChange?.(true);
       }
@@ -92,17 +105,16 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
       setError('Could not start audio. Please allow audio in your browser.');
       console.error(e);
     }
-  }, [ready, isPlaying, beatHz, binauralVol, musicVol, natureVol, selectedTrack, track.mentalState, onPlayingChange]);
+  }, [ready, isPlaying, beatHz, binauralVol, musicVol, natureVol, selectedId, track.mentalState, onPlayingChange]);
 
   const handleBinauralVol = (v: number) => { setBinauralVol(v); binauralRef.current?.setBinauralVolume(v); };
   const handleMusicVol    = (v: number) => { setMusicVol(v);    musicRef.current?.setVolume(v); };
-  const handleNatureVol   = (v: number) => { setNatureVol(v);   binauralRef.current?.setAmbientVolume(v); };
+  const handleNatureVol   = (v: number) => { setNatureVol(v);   noiseRef.current?.setVolume(v); };
   const handleBeatHz      = (v: number) => { setBeatHz(v);      binauralRef.current?.rampBeat(v, 3); };
 
-  const handleSelectSound = async (id: string) => {
+  const handleSelectSound = async (id: NoiseSoundscape) => {
     setSelectedId(id);
-    const sound = SOUNDSCAPE_LIBRARY.find((s) => s.id === id);
-    if (ready && sound) await binauralRef.current?.setAmbient(sound.url);
+    if (ready) await noiseRef.current?.setSoundscape(id);
   };
 
   return (
@@ -123,20 +135,20 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
         <div className="min-w-0">
           <p className="text-sm font-medium text-white/80 truncate">{musicProfile.description.split(',')[0]}</p>
           <p className="text-xs text-white/35 mt-0.5">
-            {beatHz.toFixed(1)} Hz · {selectedTrack.emoji} {selectedTrack.label}
+            {beatHz.toFixed(1)} Hz · {selectedItem.emoji} {selectedItem.label}
           </p>
         </div>
       </div>
 
-      {/* Mixer sliders */}
-      <div className="space-y-3.5">
+      {/* Mixer sliders — hidden in compact mode */}
+      <div className={compact ? 'hidden' : 'space-y-3.5'}>
         <p className="text-[10px] font-medium text-white/25 uppercase tracking-[0.15em]">Mixer</p>
 
         {[
-          { label: '🧠 Binaural Beat', suffix: `${beatHz.toFixed(1)} Hz`, value: beatHz, min: 0.5, max: 40, step: 0.5, onChange: handleBeatHz, isHz: true },
-          { label: '〰️ Binaural Tone', suffix: `${Math.round(binauralVol * 100)}%`, value: binauralVol, min: 0, max: 1, step: 0.01, onChange: handleBinauralVol },
-          { label: '🎹 Ambient Music',  suffix: `${Math.round(musicVol * 100)}%`,    value: musicVol,    min: 0, max: 1, step: 0.01, onChange: handleMusicVol },
-          { label: '🌿 Nature Sounds', suffix: `${Math.round(natureVol * 100)}%`,    value: natureVol,   min: 0, max: 1, step: 0.01, onChange: handleNatureVol },
+          { label: '🧠 Binaural Beat',  suffix: `${beatHz.toFixed(1)} Hz`,          value: beatHz,      min: 0.5, max: 40, step: 0.5, onChange: handleBeatHz },
+          { label: '〰️ Binaural Tone',  suffix: `${Math.round(binauralVol * 100)}%`, value: binauralVol, min: 0,   max: 1,  step: 0.01, onChange: handleBinauralVol },
+          { label: '🎹 Ambient Music',   suffix: `${Math.round(musicVol * 100)}%`,    value: musicVol,    min: 0,   max: 1,  step: 0.01, onChange: handleMusicVol },
+          { label: '🌿 Nature Sounds',  suffix: `${Math.round(natureVol * 100)}%`,    value: natureVol,   min: 0,   max: 1,  step: 0.01, onChange: handleNatureVol },
         ].map(({ label, suffix, value, min, max, step, onChange }) => (
           <div key={label} className="space-y-1">
             <div className="flex justify-between text-xs text-white/45">
@@ -152,19 +164,18 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
           </div>
         ))}
 
-        {/* Beat Hz labels */}
         <div className="flex justify-between text-[9px] text-white/20 -mt-1">
           <span>δ Delta</span><span>θ Theta</span><span>α Alpha</span><span>β Beta</span><span>γ Gamma</span>
         </div>
       </div>
 
-      {/* Soundscape picker */}
-      <div className="space-y-2.5">
+      {/* Soundscape picker — hidden in compact mode */}
+      <div className={compact ? 'hidden' : 'space-y-2.5'}>
         <p className="text-[10px] font-medium text-white/25 uppercase tracking-[0.15em]">Soundscape</p>
 
         {/* Category tabs */}
         <div className="flex gap-1.5 flex-wrap">
-          {CATEGORIES.map((cat) => (
+          {NOISE_CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
@@ -175,7 +186,7 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
                   : 'bg-transparent border-white/8 text-white/35 hover:text-white/55 hover:border-white/15'
               )}
             >
-              {CATEGORY_LABELS[cat]}
+              {NOISE_CATEGORY_LABELS[cat]}
             </button>
           ))}
         </div>
@@ -198,7 +209,10 @@ export function AudioPlayer({ track, onPlayingChange }: Props) {
             </button>
           ))}
         </div>
-        <p className="text-[9px] text-white/18">{selectedTrack.source}</p>
+
+        <p className="text-[9px] text-white/18">
+          Synthesized in-browser · infinite, never loops
+        </p>
       </div>
 
       {!ready && (
