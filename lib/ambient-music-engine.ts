@@ -37,6 +37,7 @@
  */
 
 import type { MentalState } from '@/types';
+import { MUSIC_STYLES, DEFAULT_STYLE, type StyleId, type MusicStyle } from './music-styles';
 
 // ─── Profile types ────────────────────────────────────────────────────────────
 
@@ -207,44 +208,60 @@ export class AmbientMusicEngine {
   private padFilter:   any = null;
   private padFilterLFO:any = null;   // slow movement on pad timbre
   private padChorus:   any = null;
+  private padVibrato:  any = null;   // lo-fi tape warble (only when style.lofi)
   private padReverb:   any = null;
   private melReverb:   any = null;
   private smoothBus:   any = null;   // pads + air → unmodulated (always continuous)
   private ammedBus:    any = null;   // arp + melody + bass + sub → AM applied here
   private masterVol:   any = null;
   private widener:     any = null;
+  private lofiFilter:  any = null;   // master lowpass (only when style.lofi)
   private tremolo:     any = null;   // ── neural phase-locking AM ──
   private comp:        any = null;
   private limiter:     any = null;
 
   private profile:   MusicProfile | null = null;
+  private style:     MusicStyle | null = null;
   private chordIdx = 0;
   private barCount = 0;
   private _isPlaying = false;
+  private _started   = false;   // has Transport/patterns been started at least once
   private _volume    = 0.7;
+  private _masterTrim = 0;
 
   // ── Public API ──────────────────────────────────────────────────────────────
 
-  async init(mentalState: MentalState): Promise<void> {
+  async init(mentalState: MentalState, styleId?: StyleId): Promise<void> {
     this.Tone   = await import('tone');
     const T     = this.Tone;
     this.profile = MUSIC_PROFILES[mentalState];
     const p      = this.profile;
+    this.style  = MUSIC_STYLES[styleId ?? DEFAULT_STYLE[mentalState]];
+    const s     = this.style;
+    this._masterTrim = s.masterTrim;
 
     await T.start();
     T.getTransport().bpm.value = p.bpm;
 
     // ── Master output chain ──────────────────────────────────────────────────
     //   smoothBus (pads) ─────────────────────────┐
-    //   ammedBus (rhythm) → tremolo(AM) ──────────┴→ masterVol → widener → comp → limiter → out
+    //   ammedBus (rhythm) → tremolo(AM) ──────────┴→ masterVol → widener → [lofi] → comp → limiter → out
     this.limiter = new T.Limiter(-1);
     this.limiter.toDestination();
 
     this.comp = new T.Compressor({ threshold: -18, ratio: 3, attack: 0.05, release: 0.25 });
     this.comp.connect(this.limiter);
 
-    this.widener = new T.StereoWidener(0.6);
-    this.widener.connect(this.comp);
+    // Lo-fi: roll off the highs after the widener for a warm, dampened mix
+    let afterWidener = this.comp;
+    if (s.lofi) {
+      this.lofiFilter = new T.Filter({ frequency: 3200, type: 'lowpass', rolloff: -12 });
+      this.lofiFilter.connect(this.comp);
+      afterWidener = this.lofiFilter;
+    }
+
+    this.widener = new T.StereoWidener(s.lofi ? 0.4 : 0.6);
+    this.widener.connect(afterWidener);
 
     this.masterVol = new T.Volume(-60); // start silent; play() fades in
     this.masterVol.connect(this.widener);
@@ -267,40 +284,46 @@ export class AmbientMusicEngine {
     this.ammedBus = new T.Gain(1);
     this.ammedBus.connect(this.tremolo);
 
-    // ── Pad effects: filter (slow LFO) → chorus → reverb → smooth bus ────────
-    this.padReverb = new T.Reverb({ decay: p.reverbDecay, wet: 0.55, preDelay: 0.02 });
+    // ── Pad effects: filter (slow LFO) → [vibrato] → [chorus] → reverb → smooth bus
+    const padWet = Math.min(1, 0.55 * s.reverbWetScale);
+    this.padReverb = new T.Reverb({ decay: p.reverbDecay * s.reverbDecayScale, wet: padWet, preDelay: 0.02 });
     await this.padReverb.ready;
     this.padReverb.connect(this.smoothBus);
 
-    this.padChorus = new T.Chorus({ frequency: 0.6, delayTime: 3.5, depth: 0.7, wet: 0.4 }).start();
-    this.padChorus.connect(this.padReverb);
-
-    this.padFilter = new T.Filter({ frequency: 1600, type: 'lowpass', rolloff: -24 });
-    this.padFilter.connect(this.padChorus);
+    // Build the pad chain backward from the reverb so chorus/vibrato are optional
+    let padNode = this.padReverb;
+    if (s.pad.chorus) {
+      this.padChorus = new T.Chorus({ frequency: 0.6, delayTime: 3.5, depth: 0.7, wet: 0.4 }).start();
+      this.padChorus.connect(padNode);
+      padNode = this.padChorus;
+    }
+    if (s.lofi) {
+      this.padVibrato = new T.Vibrato({ frequency: 4.5, depth: 0.08, wet: 0.5 });
+      this.padVibrato.connect(padNode);
+      padNode = this.padVibrato;
+    }
+    this.padFilter = new T.Filter({ frequency: s.pad.filterFreq, type: 'lowpass', rolloff: -24 });
+    this.padFilter.connect(padNode);
 
     // Slow LFO breathes the filter cutoff so the pad timbre evolves over ~30 s
-    this.padFilterLFO = new T.LFO({ frequency: 0.035, min: 750, max: 2100, type: 'sine' }).start();
+    this.padFilterLFO = new T.LFO({
+      frequency: 0.035, type: 'sine',
+      min: s.pad.filterFreq * 0.5, max: s.pad.filterFreq * 1.3,
+    }).start();
     this.padFilterLFO.connect(this.padFilter.frequency);
 
-    // ── Arpeggio effects: delay → reverb ────────────────────────────────────
-    this.arpReverb = new T.Reverb({ decay: p.reverbDecay * 0.6, wet: 0.45 });
+    // ── Arpeggio + melody reverbs ────────────────────────────────────────────
+    this.arpReverb = new T.Reverb({ decay: p.reverbDecay * 0.6 * s.reverbDecayScale, wet: Math.min(1, 0.45 * s.reverbWetScale) });
     await this.arpReverb.ready;
     this.arpReverb.connect(this.ammedBus);
 
-    this.arpDelay = new T.FeedbackDelay({ delayTime: '8n', feedback: 0.3, wet: 0.25 });
-    this.arpDelay.connect(this.arpReverb);
-
-    // ── Melody reverb ────────────────────────────────────────────────────────
-    this.melReverb = new T.Reverb({ decay: p.reverbDecay * 0.5, wet: 0.5 });
+    this.melReverb = new T.Reverb({ decay: p.reverbDecay * 0.5 * s.reverbDecayScale, wet: Math.min(1, 0.5 * s.reverbWetScale) });
     await this.melReverb.ready;
     this.melReverb.connect(this.ammedBus);
 
-    // ── Pad synth — fatsawtooth for rich, lush chords ───────────────────────
-    this.padSynth = new T.PolySynth(T.Synth, {
-      oscillator: { type: 'fatsawtooth', count: 2, spread: 18 },
-      envelope: { attack: p.padAttack, decay: 1.2, sustain: 0.85, release: p.padRelease },
-      volume: -10,
-    });
+    // ── Pad synth (style timbre) ─────────────────────────────────────────────
+    const padEnv = s.pad.envelope ?? { attack: p.padAttack, decay: 1.2, sustain: 0.85, release: p.padRelease };
+    this.padSynth = this._makePolyVoice(s.pad, padEnv);
     this.padSynth.connect(this.padFilter);
 
     // ── Air synth — high shimmer that swells on each chord ──────────────────
@@ -311,40 +334,35 @@ export class AmbientMusicEngine {
     });
     this.airSynth.connect(this.padReverb);
 
-    // ── Arpeggio synth — triangle, clean, melodic ───────────────────────────
-    if (p.arpeggioEnabled) {
-      this.arpeggioSynth = new T.PolySynth(T.Synth, {
-        oscillator: { type: 'triangle' },
-        envelope: { attack: 0.02, decay: 0.15, sustain: 0.25, release: 2.5 },
-        volume: -8,   // arpeggio is the main melody vehicle — keep it present
-      });
+    // ── Arpeggio synth — the main melodic vehicle ───────────────────────────
+    if (p.arpeggioEnabled && s.arp) {
+      this.arpDelay = new T.FeedbackDelay({ delayTime: '8n', feedback: s.arp.delayFeedback, wet: s.arp.delayWet });
+      this.arpDelay.connect(this.arpReverb);
+
+      const arpEnv = s.arp.envelope ?? { attack: 0.02, decay: 0.15, sustain: 0.25, release: 2.5 };
+      this.arpeggioSynth = this._makePolyVoice(s.arp, arpEnv);
       this.arpeggioSynth.connect(this.arpDelay);
     }
 
-    // ── Bass + sub — sine, deep, subtle ─────────────────────────────────────
-    if (p.bassEnabled) {
-      this.bassSynth = new T.Synth({
-        oscillator: { type: 'sine' },
-        envelope: { attack: 0.05, decay: 0.25, sustain: 0.5, release: 0.4 },
-        volume: -14,
-      });
+    // ── Bass + sub ───────────────────────────────────────────────────────────
+    if (p.bassEnabled && s.bass) {
+      const bassEnv = s.bass.envelope ?? { attack: 0.05, decay: 0.25, sustain: 0.5, release: 0.4 };
+      this.bassSynth = this._makeMonoVoice(s.bass, bassEnv);
       this.bassSynth.connect(this.ammedBus);
 
+      // Sub is always a clean sine an octave down, regardless of style
       this.subSynth = new T.Synth({
         oscillator: { type: 'sine' },
         envelope: { attack: 0.08, decay: 0.3, sustain: 0.6, release: 0.5 },
-        volume: -18,
+        volume: s.bass.volume - 4,
       });
       this.subSynth.connect(this.ammedBus);
     }
 
-    // ── Melody synth — triangle, expressive ─────────────────────────────────
-    if (p.melodyEnabled && p.melodyScale.length > 0) {
-      this.melodySynth = new T.Synth({
-        oscillator: { type: 'triangle' },
-        envelope: { attack: 0.25, decay: 0.6, sustain: 0.45, release: 2.2 },
-        volume: -12,
-      });
+    // ── Melody / lead synth ──────────────────────────────────────────────────
+    if (p.melodyEnabled && p.melodyScale.length > 0 && s.lead) {
+      const leadEnv = s.lead.envelope ?? { attack: 0.25, decay: 0.6, sustain: 0.45, release: 2.2 };
+      this.melodySynth = this._makeMonoVoice(s.lead, leadEnv);
       this.melodySynth.connect(this.melReverb);
     }
 
@@ -352,9 +370,42 @@ export class AmbientMusicEngine {
     this._buildPatterns();
   }
 
+  /** Build a polyphonic voice (pad/arp) honoring the style's FM/oscillator choice */
+  private _makePolyVoice(v: { fm?: boolean; harmonicity?: number; modulationIndex?: number; oscillator?: any; volume: number }, env: any): any {
+    const T = this.Tone;
+    if (v.fm) {
+      return new T.PolySynth(T.FMSynth, {
+        harmonicity: v.harmonicity ?? 2,
+        modulationIndex: v.modulationIndex ?? 4,
+        oscillator: { type: 'sine' },
+        modulation: { type: 'sine' },
+        envelope: env,
+        volume: v.volume,
+      });
+    }
+    return new T.PolySynth(T.Synth, { oscillator: v.oscillator ?? { type: 'triangle' }, envelope: env, volume: v.volume });
+  }
+
+  /** Build a monophonic voice (bass/lead) honoring the style's FM/oscillator choice */
+  private _makeMonoVoice(v: { fm?: boolean; harmonicity?: number; modulationIndex?: number; oscillator?: any; volume: number }, env: any): any {
+    const T = this.Tone;
+    if (v.fm) {
+      return new T.FMSynth({
+        harmonicity: v.harmonicity ?? 2,
+        modulationIndex: v.modulationIndex ?? 4,
+        oscillator: { type: 'sine' },
+        modulation: { type: 'sine' },
+        envelope: env,
+        volume: v.volume,
+      });
+    }
+    return new T.Synth({ oscillator: v.oscillator ?? { type: 'sine' }, envelope: env, volume: v.volume });
+  }
+
   play(): void {
     if (this._isPlaying || !this.profile || !this.Tone) return;
     this._isPlaying = true;
+    this._started = true;
 
     // Fade in master volume
     this.masterVol?.volume.rampTo(this._dbAtVolume(), 2);
@@ -387,6 +438,9 @@ export class AmbientMusicEngine {
 
   resume(): void {
     if (this._isPlaying || !this.profile) return;
+    // If the engine was rebuilt (e.g. style change) and never started its
+    // Transport/patterns, do a full start instead of just unmuting.
+    if (!this._started) { this.play(); return; }
     this._isPlaying = true;
     this.masterVol?.volume.rampTo(this._dbAtVolume(), 1.5);
   }
@@ -402,10 +456,17 @@ export class AmbientMusicEngine {
   get isPlaying() { return this._isPlaying; }
   get volume()    { return this._volume; }
 
+  /** Fade the mix to silence over `sec` (used for graceful style crossfades). */
+  fadeOut(sec = 1.0): void {
+    this._isPlaying = false;
+    this.masterVol?.volume.rampTo(-60, sec);
+  }
+
   dispose(): void {
     this._isPlaying = false;
-    try { this.Tone?.getTransport().stop(); } catch { /* ignore */ }
-
+    // NOTE: do NOT stop the global Transport here — it is shared with the noise
+    // crackle layer and any newly-built engine during a style crossfade. Just
+    // stop this engine's own loops/patterns.
     this.arpeggioPattern?.stop(0);
     this.chordLoop?.stop(0);
     this.bassLoop?.stop(0);
@@ -428,12 +489,14 @@ export class AmbientMusicEngine {
         this.padFilterLFO?.dispose();
         this.padFilter?.dispose();
         this.padChorus?.dispose();
+        this.padVibrato?.dispose();
         this.padReverb?.dispose();
         this.melReverb?.dispose();
         this.smoothBus?.dispose();
         this.ammedBus?.dispose();
         this.masterVol?.dispose();
         this.widener?.dispose();
+        this.lofiFilter?.dispose();
         this.tremolo?.dispose();
         this.comp?.dispose();
         this.limiter?.dispose();
@@ -582,7 +645,8 @@ export class AmbientMusicEngine {
 
   private _dbAtVolume(): number {
     if (!this.profile || this._volume <= 0) return -60;
-    // Linear: v=1 → profile.masterVolume, v=0 → -60
-    return -60 + this._volume * (this.profile.masterVolume + 60);
+    // Linear: v=1 → profile.masterVolume (+ style trim), v=0 → -60
+    const target = this.profile.masterVolume + this._masterTrim;
+    return -60 + this._volume * (target + 60);
   }
 }

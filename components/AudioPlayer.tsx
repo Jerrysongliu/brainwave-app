@@ -13,6 +13,7 @@ import {
 } from '@/lib/noise-engine';
 import { BrainWaveEngine } from '@/lib/audio-engine';
 import { AmbientMusicEngine, MUSIC_PROFILES } from '@/lib/ambient-music-engine';
+import { STATE_STYLES, MUSIC_STYLES, DEFAULT_STYLE, type StyleId } from '@/lib/music-styles';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -43,6 +44,9 @@ export function AudioPlayer({ track, onPlayingChange, compact = false }: Props) 
   const selectedItem  = NOISE_LIBRARY.find((s) => s.id === selectedId) ?? NOISE_LIBRARY[0];
   const visibleSounds = NOISE_LIBRARY.filter((s) => s.category === activeCategory);
   const musicProfile  = MUSIC_PROFILES[track.mentalState];
+
+  const styleOptions  = STATE_STYLES[track.mentalState];
+  const [styleId, setStyleId] = useState<StyleId>(DEFAULT_STYLE[track.mentalState]);
 
   useEffect(() => {
     setActiveCategory(selectedItem.category);
@@ -75,7 +79,7 @@ export function AudioPlayer({ track, onPlayingChange, compact = false }: Props) 
         binaural.play();
 
         // Generative music
-        await music.init(track.mentalState);
+        await music.init(track.mentalState, styleId);
         music.setVolume(musicVol);
         music.play();
 
@@ -105,7 +109,7 @@ export function AudioPlayer({ track, onPlayingChange, compact = false }: Props) 
       setError('Could not start audio. Please allow audio in your browser.');
       console.error(e);
     }
-  }, [ready, isPlaying, beatHz, binauralVol, musicVol, natureVol, selectedId, track.mentalState, onPlayingChange]);
+  }, [ready, isPlaying, beatHz, binauralVol, musicVol, natureVol, selectedId, styleId, track.mentalState, onPlayingChange]);
 
   const handleBinauralVol = (v: number) => { setBinauralVol(v); binauralRef.current?.setBinauralVolume(v); };
   const handleMusicVol    = (v: number) => { setMusicVol(v);    musicRef.current?.setVolume(v); };
@@ -115,6 +119,26 @@ export function AudioPlayer({ track, onPlayingChange, compact = false }: Props) 
   const handleSelectSound = async (id: NoiseSoundscape) => {
     setSelectedId(id);
     if (ready) await noiseRef.current?.setSoundscape(id);
+  };
+
+  // Switching style rebuilds the music engine (instruments/effects change).
+  // The old engine fades out while the new one fades in for a smooth crossfade.
+  const handleSelectStyle = async (id: StyleId) => {
+    if (id === styleId) return;
+    setStyleId(id);
+    if (!ready) return;
+    const wasPlaying = isPlaying;
+    const old = musicRef.current;
+    old?.fadeOut(0.8);
+
+    const music = new AmbientMusicEngine();
+    musicRef.current = music;
+    await music.init(track.mentalState, id);
+    music.setVolume(musicVol);
+    if (wasPlaying) music.play();
+
+    // Dispose the old engine after its fade completes (Transport stays running).
+    setTimeout(() => old?.dispose(), 1200);
   };
 
   return (
@@ -167,6 +191,32 @@ export function AudioPlayer({ track, onPlayingChange, compact = false }: Props) 
         <div className="flex justify-between text-[9px] text-white/20 -mt-1">
           <span>δ Delta</span><span>θ Theta</span><span>α Alpha</span><span>β Beta</span><span>γ Gamma</span>
         </div>
+      </div>
+
+      {/* Music style picker — hidden in compact mode */}
+      <div className={compact ? 'hidden' : 'space-y-2.5'}>
+        <p className="text-[10px] font-medium text-white/25 uppercase tracking-[0.15em]">Music Style</p>
+        <div className="flex gap-2 flex-wrap">
+          {styleOptions.map((id) => {
+            const st = MUSIC_STYLES[id];
+            return (
+              <button
+                key={id}
+                onClick={() => handleSelectStyle(id)}
+                className={cn(
+                  'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-all',
+                  styleId === id
+                    ? 'bg-white/15 border-white/30 text-white'
+                    : 'bg-white/3 border-white/8 hover:bg-white/8 text-white/45'
+                )}
+              >
+                <span>{st.emoji}</span>
+                <span>{st.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[9px] text-white/18">{MUSIC_STYLES[styleId].description}</p>
       </div>
 
       {/* Soundscape picker — hidden in compact mode */}
