@@ -29,6 +29,17 @@ interface NoiseProfile {
   reverbDecay: number;
   reverbWet: number;
   volume: number;     // dB (design loudness at slider = 1)
+  // ── Particle/crackle layer ──
+  // Randomly-triggered short noise bursts that give a scene its identity:
+  // rain droplet patter, fire crackle pops, cricket chirps. Randomly generated
+  // each time → never loops, no seam.
+  crackleEnabled: boolean;
+  crackleInterval: number; // seconds between potential bursts
+  crackleDensity: number;  // 0–1 probability a burst fires each interval
+  crackleFreqMin: number;  // bandpass center range for each burst (Hz)
+  crackleFreqMax: number;
+  crackleDecay: number;    // burst length in seconds
+  crackleVolume: number;   // dB
 }
 
 // ─── Soundscape profiles ─────────────────────────────────────────────────────
@@ -44,16 +55,68 @@ interface NoiseProfile {
 // rolloff (set in _build) so they read as rumble, not hiss.
 
 const PROFILES: Record<NoiseSoundscape, NoiseProfile> = {
-  rain:       { noiseType:'white', filterType:'lowpass',  baseFreq:650,  filterQ:0.4, lfoRate:0.06, lfoOctaves:0.5, reverbDecay:1.5, reverbWet:0.18, volume:-5  },
-  'rain-heavy':{ noiseType:'white', filterType:'lowpass', baseFreq:1300, filterQ:0.4, lfoRate:0.12, lfoOctaves:0.7, reverbDecay:1.2, reverbWet:0.15, volume:-11 },
-  storm:      { noiseType:'white', filterType:'lowpass',  baseFreq:1700, filterQ:0.3, lfoRate:0.10, lfoOctaves:1.0, reverbDecay:2.0, reverbWet:0.22, volume:-13 },
-  ocean:      { noiseType:'white', filterType:'lowpass',  baseFreq:480,  filterQ:0.6, lfoRate:0.05, lfoOctaves:1.6, reverbDecay:3.0, reverbWet:0.30, volume:-5  },
-  wind:       { noiseType:'white', filterType:'bandpass', baseFreq:700,  filterQ:1.0, lfoRate:0.10, lfoOctaves:1.2, reverbDecay:1.5, reverbWet:0.22, volume:-9  },
-  'wind-howl':{ noiseType:'white', filterType:'bandpass', baseFreq:1300, filterQ:1.8, lfoRate:0.14, lfoOctaves:1.8, reverbDecay:2.0, reverbWet:0.26, volume:-11 },
-  fire:       { noiseType:'white', filterType:'lowpass',  baseFreq:420,  filterQ:0.3, lfoRate:0.25, lfoOctaves:0.8, reverbDecay:0.8, reverbWet:0.12, volume:-4  },
-  night:      { noiseType:'white', filterType:'bandpass', baseFreq:4500, filterQ:3.0, lfoRate:0.06, lfoOctaves:0.4, reverbDecay:1.0, reverbWet:0.18, volume:-20 },
-  forest:     { noiseType:'white', filterType:'lowpass',  baseFreq:2200, filterQ:0.5, lfoRate:0.08, lfoOctaves:0.8, reverbDecay:2.0, reverbWet:0.26, volume:-13 },
-  none:       { noiseType:'white', filterType:'lowpass',  baseFreq:80,   filterQ:0.5, lfoRate:0,    lfoOctaves:0,   reverbDecay:1.0, reverbWet:0.0,  volume:-60 },
+  // Bed = continuous filtered white noise (seamless). crackle* = the random
+  // transient layer that gives each scene its recognizable character.
+  rain: {
+    noiseType:'white', filterType:'lowpass', baseFreq:600, filterQ:0.4,
+    lfoRate:0.06, lfoOctaves:0.5, reverbDecay:1.5, reverbWet:0.16, volume:-7,
+    crackleEnabled:true, crackleInterval:0.05, crackleDensity:0.55,
+    crackleFreqMin:1800, crackleFreqMax:6500, crackleDecay:0.03, crackleVolume:-13,
+  },
+  'rain-heavy': {
+    noiseType:'white', filterType:'lowpass', baseFreq:1100, filterQ:0.4,
+    lfoRate:0.12, lfoOctaves:0.7, reverbDecay:1.2, reverbWet:0.14, volume:-12,
+    crackleEnabled:true, crackleInterval:0.038, crackleDensity:0.78,
+    crackleFreqMin:2200, crackleFreqMax:8000, crackleDecay:0.025, crackleVolume:-9,
+  },
+  storm: {
+    noiseType:'white', filterType:'lowpass', baseFreq:1500, filterQ:0.3,
+    lfoRate:0.10, lfoOctaves:1.0, reverbDecay:2.0, reverbWet:0.22, volume:-13,
+    crackleEnabled:true, crackleInterval:0.035, crackleDensity:0.82,
+    crackleFreqMin:1600, crackleFreqMax:7500, crackleDecay:0.03, crackleVolume:-8,
+  },
+  ocean: {
+    noiseType:'white', filterType:'lowpass', baseFreq:480, filterQ:0.6,
+    lfoRate:0.05, lfoOctaves:1.6, reverbDecay:3.0, reverbWet:0.30, volume:-5,
+    crackleEnabled:false, crackleInterval:0.1, crackleDensity:0,
+    crackleFreqMin:0, crackleFreqMax:0, crackleDecay:0, crackleVolume:-60,
+  },
+  wind: {
+    noiseType:'white', filterType:'bandpass', baseFreq:700, filterQ:1.0,
+    lfoRate:0.10, lfoOctaves:1.2, reverbDecay:1.5, reverbWet:0.22, volume:-9,
+    crackleEnabled:false, crackleInterval:0.1, crackleDensity:0,
+    crackleFreqMin:0, crackleFreqMax:0, crackleDecay:0, crackleVolume:-60,
+  },
+  'wind-howl': {
+    noiseType:'white', filterType:'bandpass', baseFreq:1300, filterQ:1.8,
+    lfoRate:0.14, lfoOctaves:1.8, reverbDecay:2.0, reverbWet:0.26, volume:-11,
+    crackleEnabled:false, crackleInterval:0.1, crackleDensity:0,
+    crackleFreqMin:0, crackleFreqMax:0, crackleDecay:0, crackleVolume:-60,
+  },
+  fire: {
+    noiseType:'white', filterType:'lowpass', baseFreq:420, filterQ:0.3,
+    lfoRate:0.18, lfoOctaves:0.6, reverbDecay:0.8, reverbWet:0.10, volume:-6,
+    crackleEnabled:true, crackleInterval:0.09, crackleDensity:0.32,
+    crackleFreqMin:350, crackleFreqMax:2200, crackleDecay:0.06, crackleVolume:-8,
+  },
+  night: {
+    noiseType:'white', filterType:'bandpass', baseFreq:4500, filterQ:3.0,
+    lfoRate:0.06, lfoOctaves:0.4, reverbDecay:1.2, reverbWet:0.20, volume:-22,
+    crackleEnabled:true, crackleInterval:0.16, crackleDensity:0.28,
+    crackleFreqMin:4200, crackleFreqMax:8800, crackleDecay:0.05, crackleVolume:-15,
+  },
+  forest: {
+    noiseType:'white', filterType:'lowpass', baseFreq:2200, filterQ:0.5,
+    lfoRate:0.08, lfoOctaves:0.8, reverbDecay:2.0, reverbWet:0.26, volume:-14,
+    crackleEnabled:true, crackleInterval:0.14, crackleDensity:0.20,
+    crackleFreqMin:1500, crackleFreqMax:5500, crackleDecay:0.05, crackleVolume:-17,
+  },
+  none: {
+    noiseType:'white', filterType:'lowpass', baseFreq:80, filterQ:0.5,
+    lfoRate:0, lfoOctaves:0, reverbDecay:1.0, reverbWet:0.0, volume:-60,
+    crackleEnabled:false, crackleInterval:0.1, crackleDensity:0,
+    crackleFreqMin:0, crackleFreqMax:0, crackleDecay:0, crackleVolume:-60,
+  },
 };
 
 // ─── Public library (for UI) ──────────────────────────────────────────────────
@@ -101,6 +164,11 @@ export class NoiseEngine {
   private autoFilter: any = null;
   private reverb: any     = null;
   private masterVol: any  = null;
+
+  // Particle/crackle layer (rain patter, fire pops, cricket chirps)
+  private crackleSynth: any  = null;
+  private crackleFilter: any = null;
+  private crackleLoop: any   = null;
 
   private _isPlaying = false;
   private _initialized = false;
@@ -195,22 +263,65 @@ export class NoiseEngine {
 
     this.noise = new T.Noise(p.noiseType);
     this.noise.connect(this.autoFilter);
+
+    // ── Particle/crackle layer ───────────────────────────────────────────────
+    // Short random noise bursts, bandpassed to a per-scene frequency band, fed
+    // DRY into masterVol so the transients stay crisp (no reverb wash). This is
+    // what makes rain sound like rain and fire sound like fire.
+    if (p.crackleEnabled) {
+      this.crackleFilter = new T.Filter({ type: 'bandpass', frequency: p.crackleFreqMin, Q: 1.2 });
+      this.crackleFilter.connect(this.masterVol);
+
+      this.crackleSynth = new T.NoiseSynth({
+        noise: { type: 'white' },
+        envelope: { attack: 0.001, decay: p.crackleDecay, sustain: 0, release: 0.02 },
+        volume: p.crackleVolume,
+      });
+      this.crackleSynth.connect(this.crackleFilter);
+
+      // Tone.Loop drives the bursts (sample-accurate, on the global Transport).
+      this.crackleLoop = new T.Loop((time: number) => {
+        if (!this._isPlaying) return;
+        if (Math.random() > p.crackleDensity) return; // probabilistic density
+        const f = p.crackleFreqMin + Math.random() * (p.crackleFreqMax - p.crackleFreqMin);
+        try {
+          this.crackleFilter.frequency.setValueAtTime(f, time);
+          this.crackleSynth.triggerAttackRelease(p.crackleDecay, time);
+        } catch { /* disposed */ }
+      }, p.crackleInterval);
+    }
   }
 
   private _startNoise(): void {
     if (!this.noise) return;
+    const T = this.Tone;
     try { this.noise.start(); } catch { /* already running */ }
+    // Crackle bursts need the Transport running; it's shared/global, so only
+    // start it if nothing else already did (e.g. the music engine).
+    if (this.crackleLoop) {
+      try {
+        if (T.getTransport().state !== 'started') T.getTransport().start();
+        this.crackleLoop.start();
+      } catch { /* ignore */ }
+    }
     this.masterVol?.volume.rampTo(this._dbAtVolume(), 1.5);
   }
 
   private _teardown(): void {
     try {
+      this.crackleLoop?.stop();
+      this.crackleLoop?.dispose();
+      this.crackleSynth?.dispose();
+      this.crackleFilter?.dispose();
       this.noise?.stop();
       this.noise?.dispose();
       this.autoFilter?.dispose();
       this.reverb?.dispose();
       this.masterVol?.dispose();
     } catch { /* ignore */ }
+    this.crackleLoop = null;
+    this.crackleSynth = null;
+    this.crackleFilter = null;
     this.noise = null;
     this.autoFilter = null;
     this.reverb = null;
