@@ -32,18 +32,28 @@ interface NoiseProfile {
 }
 
 // ─── Soundscape profiles ─────────────────────────────────────────────────────
+//
+// All soundscapes are sourced from WHITE noise and shaped by filters. White
+// noise loops seamlessly (independent samples → no audible seam), unlike Tone's
+// brown/pink noise whose short looped buffers produce a periodic low "thump".
+//
+// `volume` is hand-tuned for roughly EQUAL PERCEIVED loudness. The ear hears
+// midrange (1–4 kHz) far louder than low rumble, so low/dark soundscapes
+// (fire, ocean, gentle rain) get more gain (less negative dB) and bright ones
+// (storm, night, heavy rain) get less. Lowpass scenes also use a steeper
+// rolloff (set in _build) so they read as rumble, not hiss.
 
 const PROFILES: Record<NoiseSoundscape, NoiseProfile> = {
-  rain:       { noiseType:'brown', filterType:'lowpass',  baseFreq:500,  filterQ:0.5, lfoRate:0.08, lfoOctaves:0.7, reverbDecay:1.5, reverbWet:0.25, volume:-10 },
-  'rain-heavy':{ noiseType:'brown', filterType:'lowpass', baseFreq:900,  filterQ:0.4, lfoRate:0.18, lfoOctaves:1.2, reverbDecay:1.2, reverbWet:0.20, volume:-7  },
-  storm:      { noiseType:'brown', filterType:'lowpass',  baseFreq:1100, filterQ:0.3, lfoRate:0.14, lfoOctaves:1.6, reverbDecay:2.0, reverbWet:0.30, volume:-5  },
-  ocean:      { noiseType:'brown', filterType:'lowpass',  baseFreq:320,  filterQ:0.8, lfoRate:0.05, lfoOctaves:2.2, reverbDecay:3.0, reverbWet:0.40, volume:-8  },
-  wind:       { noiseType:'pink',  filterType:'bandpass', baseFreq:850,  filterQ:1.2, lfoRate:0.16, lfoOctaves:1.8, reverbDecay:1.5, reverbWet:0.25, volume:-9  },
-  'wind-howl':{ noiseType:'pink',  filterType:'bandpass', baseFreq:1400, filterQ:2.2, lfoRate:0.22, lfoOctaves:2.5, reverbDecay:2.0, reverbWet:0.30, volume:-8  },
-  fire:       { noiseType:'brown', filterType:'lowpass',  baseFreq:220,  filterQ:0.3, lfoRate:0.38, lfoOctaves:1.0, reverbDecay:0.8, reverbWet:0.15, volume:-9  },
-  night:      { noiseType:'pink',  filterType:'bandpass', baseFreq:4200, filterQ:3.5, lfoRate:0.07, lfoOctaves:0.5, reverbDecay:1.0, reverbWet:0.20, volume:-13 },
-  forest:     { noiseType:'pink',  filterType:'lowpass',  baseFreq:1600, filterQ:0.6, lfoRate:0.09, lfoOctaves:1.2, reverbDecay:2.0, reverbWet:0.30, volume:-12 },
-  none:       { noiseType:'brown', filterType:'lowpass',  baseFreq:80,   filterQ:0.5, lfoRate:0,    lfoOctaves:0,   reverbDecay:1.0, reverbWet:0.0,  volume:-60 },
+  rain:       { noiseType:'white', filterType:'lowpass',  baseFreq:650,  filterQ:0.4, lfoRate:0.06, lfoOctaves:0.5, reverbDecay:1.5, reverbWet:0.18, volume:-5  },
+  'rain-heavy':{ noiseType:'white', filterType:'lowpass', baseFreq:1300, filterQ:0.4, lfoRate:0.12, lfoOctaves:0.7, reverbDecay:1.2, reverbWet:0.15, volume:-11 },
+  storm:      { noiseType:'white', filterType:'lowpass',  baseFreq:1700, filterQ:0.3, lfoRate:0.10, lfoOctaves:1.0, reverbDecay:2.0, reverbWet:0.22, volume:-13 },
+  ocean:      { noiseType:'white', filterType:'lowpass',  baseFreq:480,  filterQ:0.6, lfoRate:0.05, lfoOctaves:1.6, reverbDecay:3.0, reverbWet:0.30, volume:-5  },
+  wind:       { noiseType:'white', filterType:'bandpass', baseFreq:700,  filterQ:1.0, lfoRate:0.10, lfoOctaves:1.2, reverbDecay:1.5, reverbWet:0.22, volume:-9  },
+  'wind-howl':{ noiseType:'white', filterType:'bandpass', baseFreq:1300, filterQ:1.8, lfoRate:0.14, lfoOctaves:1.8, reverbDecay:2.0, reverbWet:0.26, volume:-11 },
+  fire:       { noiseType:'white', filterType:'lowpass',  baseFreq:420,  filterQ:0.3, lfoRate:0.25, lfoOctaves:0.8, reverbDecay:0.8, reverbWet:0.12, volume:-4  },
+  night:      { noiseType:'white', filterType:'bandpass', baseFreq:4500, filterQ:3.0, lfoRate:0.06, lfoOctaves:0.4, reverbDecay:1.0, reverbWet:0.18, volume:-20 },
+  forest:     { noiseType:'white', filterType:'lowpass',  baseFreq:2200, filterQ:0.5, lfoRate:0.08, lfoOctaves:0.8, reverbDecay:2.0, reverbWet:0.26, volume:-13 },
+  none:       { noiseType:'white', filterType:'lowpass',  baseFreq:80,   filterQ:0.5, lfoRate:0,    lfoOctaves:0,   reverbDecay:1.0, reverbWet:0.0,  volume:-60 },
 };
 
 // ─── Public library (for UI) ──────────────────────────────────────────────────
@@ -169,13 +179,16 @@ export class NoiseEngine {
     await this.reverb.ready;
     this.reverb.connect(this.masterVol);
 
+    // Steeper rolloff on lowpass scenes turns bright white noise into a soft
+    // low rumble (rain/ocean/fire); bandpass scenes keep a gentler slope.
+    const rolloff = (p.filterType === 'lowpass' ? -48 : -24) as -24 | -48;
     this.autoFilter = new T.AutoFilter({
       frequency: p.lfoRate > 0 ? p.lfoRate : 0.001,
       baseFrequency: p.baseFreq,
       octaves: p.lfoOctaves,
       type: 'sine',
       wet: p.lfoRate > 0 ? 1 : 0,
-      filter: { type: p.filterType, rolloff: -24 as const, Q: p.filterQ },
+      filter: { type: p.filterType, rolloff, Q: p.filterQ },
     });
     if (p.lfoRate > 0) this.autoFilter.start();
     this.autoFilter.connect(this.reverb);

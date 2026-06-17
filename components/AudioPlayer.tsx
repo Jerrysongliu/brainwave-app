@@ -35,7 +35,7 @@ export function AudioPlayer({ track, onPlayingChange, compact = false }: Props) 
 
   const [binauralVol, setBinauralVol] = useState(0.20);
   const [musicVol,    setMusicVol]    = useState(0.65);
-  const [natureVol,   setNatureVol]   = useState(0.50);
+  const [natureVol,   setNatureVol]   = useState(0.65);
   const [beatHz,      setBeatHz]      = useState(FREQUENCY_PROFILES[track.mentalState].hz);
 
   const defaultNoise  = DEFAULT_NOISE[track.mentalState] ?? 'rain';
@@ -210,8 +210,22 @@ export function AudioPlayer({ track, onPlayingChange, compact = false }: Props) 
           ))}
         </div>
 
+        {/* Dedicated soundscape volume — synced with the mixer's Nature slider */}
+        <div className="space-y-1 pt-0.5">
+          <div className="flex justify-between text-xs text-white/45">
+            <span>🔊 {selectedItem.label} volume</span>
+            <span className="font-mono text-white/30">{Math.round(natureVol * 100)}%</span>
+          </div>
+          <input
+            type="range" min={0} max={1} step={0.01}
+            value={natureVol}
+            onChange={(e) => handleNatureVol(parseFloat(e.target.value))}
+            className="w-full"
+          />
+        </div>
+
         <p className="text-[9px] text-white/18">
-          Synthesized in-browser · infinite, never loops
+          Synthesized in-browser · infinite, never loops · levels matched across scenes
         </p>
       </div>
 
