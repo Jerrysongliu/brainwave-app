@@ -1,25 +1,33 @@
 /**
- * Ambient Music Engine — complete rewrite for audible, Brain.fm-quality music
+ * Ambient Music Engine v2 — Brain.fm-class generative audio
  *
- * Previous version problems:
- *  - Used setTimeout/setInterval (not audio-clock-synchronized → timing drift)
- *  - Never started Tone.js Transport (Tone patterns never fired)
- *  - Single random melody notes with 7–35 s gaps (not a melody)
- *  - Pad attack 3–7 s → chord barely audible before it rotated
+ * Two pillars of "richness" that v1 lacked:
  *
- * This version:
- *  - Starts Transport → all patterns are sample-accurate
- *  - Tone.Pattern "upDown" arpeggio → continuous melodic movement
- *  - Chord progression rotates every N bars with the arpeggio tracking it live
- *  - Melody plays stepwise 4–6 note phrases every N bars (not random solo notes)
- *  - Bass pulse on beats 1 & 3 for rhythmic grounding (focus/mood states)
- *  - fatsawtooth pads through lowpass filter → warm, lush harmonic bed
+ *  1. NEURAL PHASE-LOCKING (the Brain.fm secret sauce)
+ *     Brain.fm doesn't rely on binaural beats — it modulates the AMPLITUDE of
+ *     the music itself at the target brainwave frequency (beta ~16 Hz focus,
+ *     alpha ~10 Hz relax, delta ~2-3 Hz sleep, theta ~6 Hz meditation),
+ *     applied to both channels. We add a Tremolo (sine AM, spread 0 = identical
+ *     L/R) on the master bus, after reverb, so the whole mix pulses at the
+ *     entrainment rate. No headphones required, no perceptual illusion.
+ *
+ *  2. LAYERING + EVOLUTION
+ *     v1 had 4 thin voices that looped identically forever. v2 adds:
+ *       - sub-bass octave under the bass for fullness
+ *       - chorus + stereo widening on pads for a lush, wide bed
+ *       - a high "air/shimmer" layer that swells on each chord
+ *       - a slow filter LFO so the pad timbre breathes over time
+ *       - master compressor + limiter for glue and consistent loudness
  *
  * Signal chains:
- *   Arpeggio → FeedbackDelay → ArpReverb ──┐
- *   Pad      → LowpassFilter → PadReverb  ──┤→ MasterVol → destination
- *   Melody   → MelodyReverb              ──┤
- *   Bass     ──────────────────────────────┘
+ *   Pad    → filter (slow LFO) → chorus → padReverb ─┐
+ *   Air    → ───────────────────────────→ padReverb ─┤
+ *   Arp    → delay → arpReverb ──────────────────────┤→ masterVol
+ *   Melody → melReverb ───────────────────────────────┤
+ *   Bass   → ──────────────────────────────────────────┤
+ *   Sub    → ──────────────────────────────────────────┘
+ *                                                       │
+ *   masterVol → stereoWidener → NEURAL AM (Tremolo) → compressor → limiter → out
  */
 
 import type { MentalState } from '@/types';
@@ -47,6 +55,9 @@ export interface MusicProfile {
   padRelease:       number;
   reverbDecay:      number;
   masterVolume:     number;     // dB target at user volume = 1
+  // ── Neural phase-locking ──
+  entrainmentHz:    number;     // amplitude-modulation rate (target brainwave)
+  amDepth:          number;     // 0–1 modulation depth (keep subtle: 0.2–0.35)
   description:      string;
 }
 
@@ -65,7 +76,8 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     melodyScale:["D4","E4","F4","G4","A4","C5","D5","E5"],
     melodyPhraseBars:8, melodyEnabled:true,
     padAttack:1.5, padRelease:4, reverbDecay:4, masterVolume:-5,
-    description:"D Dorian — arpeggio-driven focus flow",
+    entrainmentHz:16, amDepth:0.30,
+    description:"D Dorian — arpeggio-driven focus flow, 16 Hz beta entrainment",
   },
 
   learning: {
@@ -80,7 +92,8 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     melodyScale:["F4","G4","A4","Bb4","C5","D5","F5"],
     melodyPhraseBars:6, melodyEnabled:true,
     padAttack:1.2, padRelease:3.5, reverbDecay:4, masterVolume:-5,
-    description:"F major — warm, open, supports memory and learning",
+    entrainmentHz:14, amDepth:0.28,
+    description:"F major — warm and open, 14 Hz beta supports memory",
   },
 
   relaxation: {
@@ -95,7 +108,8 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     melodyScale:["G4","A4","B4","D5","E5","G5"],
     melodyPhraseBars:10, melodyEnabled:true,
     padAttack:2, padRelease:5, reverbDecay:7, masterVolume:-6,
-    description:"G major — gentle arpeggio, long reverb tails",
+    entrainmentHz:10, amDepth:0.25,
+    description:"G major — gentle arpeggio, 10 Hz alpha calm",
   },
 
   sleep: {
@@ -109,7 +123,8 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     barsPerChord: 8, arpeggioSubdiv:"4n", arpeggioEnabled:true, bassEnabled:false,
     melodyScale:[], melodyPhraseBars:0, melodyEnabled:false,
     padAttack:4, padRelease:8, reverbDecay:10, masterVolume:-8,
-    description:"C major — slow dreamlike movement, maximum stillness",
+    entrainmentHz:2.5, amDepth:0.20,
+    description:"C major — slow dreamlike drift, 2.5 Hz delta",
   },
 
   'mood-boost': {
@@ -124,7 +139,8 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     melodyScale:["E4","F#4","G#4","A4","B4","C#5","D#5","E5"],
     melodyPhraseBars:4, melodyEnabled:true,
     padAttack:0.8, padRelease:2, reverbDecay:3, masterVolume:-4,
-    description:"E major — energetic 16th-note arpeggio, uplifting",
+    entrainmentHz:12, amDepth:0.32,
+    description:"E major — energetic 16th arpeggio, 12 Hz uplift",
   },
 
   meditation: {
@@ -139,7 +155,8 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     melodyScale:["A4","C5","D5","E5","G5","A5"],
     melodyPhraseBars:12, melodyEnabled:true,
     padAttack:3, padRelease:7, reverbDecay:10, masterVolume:-7,
-    description:"A minor — deep resonance, vast space",
+    entrainmentHz:6, amDepth:0.25,
+    description:"A minor — deep resonance, 6 Hz theta",
   },
 
   'anxiety-relief': {
@@ -154,7 +171,8 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     melodyScale:["F4","G4","A4","C5","D5","F5"],
     melodyPhraseBars:10, melodyEnabled:true,
     padAttack:2.5, padRelease:6, reverbDecay:8, masterVolume:-6,
-    description:"F major — steady, predictable movement soothes anxiety",
+    entrainmentHz:10, amDepth:0.22,
+    description:"F major — steady, predictable, 10 Hz alpha soothes anxiety",
   },
 };
 
@@ -166,8 +184,10 @@ export class AmbientMusicEngine {
   // Instruments
   private arpeggioSynth: any = null;
   private padSynth:      any = null;
+  private airSynth:      any = null;   // high shimmer layer
   private melodySynth:   any = null;
   private bassSynth:     any = null;
+  private subSynth:      any = null;   // octave-below sub bass
 
   // Transport-synchronized patterns / loops
   private arpeggioPattern: any = null;   // Tone.Pattern → upDown arpeggio
@@ -175,13 +195,19 @@ export class AmbientMusicEngine {
   private melodyLoop:      any = null;   // Tone.Loop  → melody phrase every N bars
   private bassLoop:        any = null;   // Tone.Loop  → bass pulse every beat
 
-  // Effects
+  // Effects / master chain
   private arpDelay:    any = null;
   private arpReverb:   any = null;
   private padFilter:   any = null;
+  private padFilterLFO:any = null;   // slow movement on pad timbre
+  private padChorus:   any = null;
   private padReverb:   any = null;
   private melReverb:   any = null;
   private masterVol:   any = null;
+  private widener:     any = null;
+  private tremolo:     any = null;   // ── neural phase-locking AM ──
+  private comp:        any = null;
+  private limiter:     any = null;
 
   private profile:   MusicProfile | null = null;
   private chordIdx = 0;
@@ -200,17 +226,44 @@ export class AmbientMusicEngine {
     await T.start();
     T.getTransport().bpm.value = p.bpm;
 
-    // ── Master ──────────────────────────────────────────────────────────────
-    this.masterVol = new T.Volume(-60); // start silent; play() fades in
-    this.masterVol.toDestination();
+    // ── Master output chain ──────────────────────────────────────────────────
+    //   masterVol → widener → tremolo(AM) → compressor → limiter → destination
+    this.limiter = new T.Limiter(-1);
+    this.limiter.toDestination();
 
-    // ── Pad effects: lowpass → reverb ───────────────────────────────────────
+    this.comp = new T.Compressor({ threshold: -18, ratio: 3, attack: 0.05, release: 0.25 });
+    this.comp.connect(this.limiter);
+
+    // Neural phase-locking: amplitude modulation at the target brainwave rate.
+    // spread:0 → identical L/R (true AM applied to both channels, like Brain.fm)
+    this.tremolo = new T.Tremolo({
+      frequency: p.entrainmentHz,
+      depth: p.amDepth,
+      spread: 0,
+      type: 'sine',
+    }).start();
+    this.tremolo.connect(this.comp);
+
+    this.widener = new T.StereoWidener(0.6);
+    this.widener.connect(this.tremolo);
+
+    this.masterVol = new T.Volume(-60); // start silent; play() fades in
+    this.masterVol.connect(this.widener);
+
+    // ── Pad effects: filter (slow LFO) → chorus → reverb ─────────────────────
     this.padReverb = new T.Reverb({ decay: p.reverbDecay, wet: 0.55, preDelay: 0.02 });
     await this.padReverb.ready;
     this.padReverb.connect(this.masterVol);
 
-    this.padFilter = new T.Filter({ frequency: 1800, type: 'lowpass', rolloff: -24 });
-    this.padFilter.connect(this.padReverb);
+    this.padChorus = new T.Chorus({ frequency: 0.6, delayTime: 3.5, depth: 0.7, wet: 0.4 }).start();
+    this.padChorus.connect(this.padReverb);
+
+    this.padFilter = new T.Filter({ frequency: 1600, type: 'lowpass', rolloff: -24 });
+    this.padFilter.connect(this.padChorus);
+
+    // Slow LFO breathes the filter cutoff so the pad timbre evolves over ~30 s
+    this.padFilterLFO = new T.LFO({ frequency: 0.035, min: 750, max: 2100, type: 'sine' }).start();
+    this.padFilterLFO.connect(this.padFilter.frequency);
 
     // ── Arpeggio effects: delay → reverb ────────────────────────────────────
     this.arpReverb = new T.Reverb({ decay: p.reverbDecay * 0.6, wet: 0.45 });
@@ -233,6 +286,14 @@ export class AmbientMusicEngine {
     });
     this.padSynth.connect(this.padFilter);
 
+    // ── Air synth — high shimmer that swells on each chord ──────────────────
+    this.airSynth = new T.PolySynth(T.Synth, {
+      oscillator: { type: 'sine' },
+      envelope: { attack: Math.max(2, p.padAttack), decay: 2, sustain: 0.6, release: Math.max(4, p.padRelease) },
+      volume: -24,
+    });
+    this.airSynth.connect(this.padReverb);
+
     // ── Arpeggio synth — triangle, clean, melodic ───────────────────────────
     if (p.arpeggioEnabled) {
       this.arpeggioSynth = new T.PolySynth(T.Synth, {
@@ -243,7 +304,7 @@ export class AmbientMusicEngine {
       this.arpeggioSynth.connect(this.arpDelay);
     }
 
-    // ── Bass synth — sine, deep, subtle ─────────────────────────────────────
+    // ── Bass + sub — sine, deep, subtle ─────────────────────────────────────
     if (p.bassEnabled) {
       this.bassSynth = new T.Synth({
         oscillator: { type: 'sine' },
@@ -251,6 +312,13 @@ export class AmbientMusicEngine {
         volume: -14,
       });
       this.bassSynth.connect(this.masterVol);
+
+      this.subSynth = new T.Synth({
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.08, decay: 0.3, sustain: 0.6, release: 0.5 },
+        volume: -18,
+      });
+      this.subSynth.connect(this.masterVol);
     }
 
     // ── Melody synth — triangle, expressive ─────────────────────────────────
@@ -334,14 +402,22 @@ export class AmbientMusicEngine {
         this.melodyLoop?.dispose();
         this.arpeggioSynth?.dispose();
         this.padSynth?.dispose();
+        this.airSynth?.dispose();
         this.melodySynth?.dispose();
         this.bassSynth?.dispose();
+        this.subSynth?.dispose();
         this.arpDelay?.dispose();
         this.arpReverb?.dispose();
+        this.padFilterLFO?.dispose();
         this.padFilter?.dispose();
+        this.padChorus?.dispose();
         this.padReverb?.dispose();
         this.melReverb?.dispose();
         this.masterVol?.dispose();
+        this.widener?.dispose();
+        this.tremolo?.dispose();
+        this.comp?.dispose();
+        this.limiter?.dispose();
       } catch { /* ignore */ }
     }, 500);
   }
@@ -380,12 +456,13 @@ export class AmbientMusicEngine {
           this.arpeggioPattern.values = [...chord.arpNotes];
         }
 
-        // Trigger new pad voicing
+        // Trigger new pad voicing (+ air shimmer)
         this._triggerPadChord(chord, time);
 
-        // Bass hit on chord change
+        // Bass + sub hit on chord change
         if (this.bassSynth) {
           this.bassSynth.triggerAttackRelease(chord.bass, '4n', time);
+          this._triggerSub(chord.bass, '4n', time);
         }
       }
     }, '1m'); // fires every 1 measure
@@ -398,6 +475,7 @@ export class AmbientMusicEngine {
         if (beat % 2 === 0) { // beats 1 and 3 of a 4-beat bar
           const chord = p.chords[this.chordIdx];
           this.bassSynth.triggerAttackRelease(chord.bass, '8n', time);
+          this._triggerSub(chord.bass, '8n', time);
         }
         beat++;
       }, '4n'); // fires every quarter note
@@ -412,14 +490,39 @@ export class AmbientMusicEngine {
     }
   }
 
-  /** Trigger a pad chord voicing with slight note stagger */
+  /** Trigger a pad chord voicing with slight note stagger + high air shimmer */
   private _triggerPadChord(chord: ChordDef, contextTime: number): void {
-    if (!this.padSynth) return;
-    this.padSynth.releaseAll();
-    chord.voicing.forEach((note, i) => {
-      const t = contextTime + i * 0.09;
-      try { this.padSynth.triggerAttack(note, t); } catch { /* disposed */ }
-    });
+    if (this.padSynth) {
+      this.padSynth.releaseAll();
+      chord.voicing.forEach((note, i) => {
+        const t = contextTime + i * 0.09;
+        try { this.padSynth.triggerAttack(note, t); } catch { /* disposed */ }
+      });
+    }
+    // Air shimmer: top two voices an octave up, very quiet, long swell
+    if (this.airSynth) {
+      this.airSynth.releaseAll();
+      const top = chord.voicing.slice(-2).map((n) => this._octaveUp(n)).filter(Boolean);
+      top.forEach((note) => {
+        try { this.airSynth.triggerAttack(note, contextTime); } catch { /* disposed */ }
+      });
+    }
+  }
+
+  /** Trigger the sub-bass an octave below the given bass note */
+  private _triggerSub(bassNote: string, dur: string, time: number): void {
+    if (!this.subSynth) return;
+    const sub = this._octaveDown(bassNote);
+    if (!sub) return;
+    try { this.subSynth.triggerAttackRelease(sub, dur, time); } catch { /* disposed */ }
+  }
+
+  private _octaveUp(note: string): string {
+    try { return this.Tone.Frequency(note).transpose(12).toNote(); } catch { return note; }
+  }
+
+  private _octaveDown(note: string): string {
+    try { return this.Tone.Frequency(note).transpose(-12).toNote(); } catch { return note; }
   }
 
   /** Generate a stepwise 4–6 note melodic phrase */
