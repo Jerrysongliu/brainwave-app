@@ -8,8 +8,13 @@
  *     the music itself at the target brainwave frequency (beta ~16 Hz focus,
  *     alpha ~10 Hz relax, delta ~2-3 Hz sleep, theta ~6 Hz meditation),
  *     applied to both channels. We add a Tremolo (sine AM, spread 0 = identical
- *     L/R) on the master bus, after reverb, so the whole mix pulses at the
- *     entrainment rate. No headphones required, no perceptual illusion.
+ *     L/R) at the entrainment rate.
+ *
+ *     IMPORTANT: the AM is applied ONLY to the moving "rhythm bus" (arp / melody
+ *     / bass / sub). The sustained pad + air bed runs through a separate, fully
+ *     UNmodulated "smooth bus", so there is always continuous sound filling the
+ *     troughs of the pulse. This keeps the music smooth and the beat subtle
+ *     while the entrainment still rides on the rhythmic content.
  *
  *  2. LAYERING + EVOLUTION
  *     v1 had 4 thin voices that looped identically forever. v2 adds:
@@ -21,13 +26,14 @@
  *
  * Signal chains:
  *   Pad    → filter (slow LFO) → chorus → padReverb ─┐
- *   Air    → ───────────────────────────→ padReverb ─┤
- *   Arp    → delay → arpReverb ──────────────────────┤→ masterVol
- *   Melody → melReverb ───────────────────────────────┤
- *   Bass   → ──────────────────────────────────────────┤
- *   Sub    → ──────────────────────────────────────────┘
- *                                                       │
- *   masterVol → stereoWidener → NEURAL AM (Tremolo) → compressor → limiter → out
+ *   Air    → ───────────────────────────→ padReverb ─┴→ smoothBus ──────────────┐
+ *                                                                                │
+ *   Arp    → delay → arpReverb ─┐                                                │
+ *   Melody → melReverb ─────────┼→ ammedBus → NEURAL AM (Tremolo @ entrainHz) ───┤
+ *   Bass   → ───────────────────┤                                                │
+ *   Sub    → ───────────────────┘                                                │
+ *                                                                                ▼
+ *                          masterVol → stereoWidener → compressor → limiter → out
  */
 
 import type { MentalState } from '@/types';
@@ -76,7 +82,7 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     melodyScale:["D4","E4","F4","G4","A4","C5","D5","E5"],
     melodyPhraseBars:8, melodyEnabled:true,
     padAttack:1.5, padRelease:4, reverbDecay:4, masterVolume:-5,
-    entrainmentHz:16, amDepth:0.30,
+    entrainmentHz:16, amDepth:0.16,
     description:"D Dorian — arpeggio-driven focus flow, 16 Hz beta entrainment",
   },
 
@@ -92,7 +98,7 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     melodyScale:["F4","G4","A4","Bb4","C5","D5","F5"],
     melodyPhraseBars:6, melodyEnabled:true,
     padAttack:1.2, padRelease:3.5, reverbDecay:4, masterVolume:-5,
-    entrainmentHz:14, amDepth:0.28,
+    entrainmentHz:14, amDepth:0.16,
     description:"F major — warm and open, 14 Hz beta supports memory",
   },
 
@@ -108,7 +114,7 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     melodyScale:["G4","A4","B4","D5","E5","G5"],
     melodyPhraseBars:10, melodyEnabled:true,
     padAttack:2, padRelease:5, reverbDecay:7, masterVolume:-6,
-    entrainmentHz:10, amDepth:0.25,
+    entrainmentHz:10, amDepth:0.14,
     description:"G major — gentle arpeggio, 10 Hz alpha calm",
   },
 
@@ -123,7 +129,7 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     barsPerChord: 8, arpeggioSubdiv:"4n", arpeggioEnabled:true, bassEnabled:false,
     melodyScale:[], melodyPhraseBars:0, melodyEnabled:false,
     padAttack:4, padRelease:8, reverbDecay:10, masterVolume:-8,
-    entrainmentHz:2.5, amDepth:0.20,
+    entrainmentHz:2.5, amDepth:0.16,
     description:"C major — slow dreamlike drift, 2.5 Hz delta",
   },
 
@@ -139,7 +145,7 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     melodyScale:["E4","F#4","G#4","A4","B4","C#5","D#5","E5"],
     melodyPhraseBars:4, melodyEnabled:true,
     padAttack:0.8, padRelease:2, reverbDecay:3, masterVolume:-4,
-    entrainmentHz:12, amDepth:0.32,
+    entrainmentHz:12, amDepth:0.18,
     description:"E major — energetic 16th arpeggio, 12 Hz uplift",
   },
 
@@ -155,7 +161,7 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     melodyScale:["A4","C5","D5","E5","G5","A5"],
     melodyPhraseBars:12, melodyEnabled:true,
     padAttack:3, padRelease:7, reverbDecay:10, masterVolume:-7,
-    entrainmentHz:6, amDepth:0.25,
+    entrainmentHz:6, amDepth:0.14,
     description:"A minor — deep resonance, 6 Hz theta",
   },
 
@@ -171,7 +177,7 @@ export const MUSIC_PROFILES: Record<MentalState, MusicProfile> = {
     melodyScale:["F4","G4","A4","C5","D5","F5"],
     melodyPhraseBars:10, melodyEnabled:true,
     padAttack:2.5, padRelease:6, reverbDecay:8, masterVolume:-6,
-    entrainmentHz:10, amDepth:0.22,
+    entrainmentHz:10, amDepth:0.13,
     description:"F major — steady, predictable, 10 Hz alpha soothes anxiety",
   },
 };
@@ -203,6 +209,8 @@ export class AmbientMusicEngine {
   private padChorus:   any = null;
   private padReverb:   any = null;
   private melReverb:   any = null;
+  private smoothBus:   any = null;   // pads + air → unmodulated (always continuous)
+  private ammedBus:    any = null;   // arp + melody + bass + sub → AM applied here
   private masterVol:   any = null;
   private widener:     any = null;
   private tremolo:     any = null;   // ── neural phase-locking AM ──
@@ -227,33 +235,42 @@ export class AmbientMusicEngine {
     T.getTransport().bpm.value = p.bpm;
 
     // ── Master output chain ──────────────────────────────────────────────────
-    //   masterVol → widener → tremolo(AM) → compressor → limiter → destination
+    //   smoothBus (pads) ─────────────────────────┐
+    //   ammedBus (rhythm) → tremolo(AM) ──────────┴→ masterVol → widener → comp → limiter → out
     this.limiter = new T.Limiter(-1);
     this.limiter.toDestination();
 
     this.comp = new T.Compressor({ threshold: -18, ratio: 3, attack: 0.05, release: 0.25 });
     this.comp.connect(this.limiter);
 
-    // Neural phase-locking: amplitude modulation at the target brainwave rate.
-    // spread:0 → identical L/R (true AM applied to both channels, like Brain.fm)
+    this.widener = new T.StereoWidener(0.6);
+    this.widener.connect(this.comp);
+
+    this.masterVol = new T.Volume(-60); // start silent; play() fades in
+    this.masterVol.connect(this.widener);
+
+    // smoothBus: continuous, UNmodulated pad/air bed → fills the AM troughs
+    this.smoothBus = new T.Gain(1);
+    this.smoothBus.connect(this.masterVol);
+
+    // Neural phase-locking: amplitude modulation at the target brainwave rate,
+    // applied ONLY to the rhythm bus. spread:0 → identical L/R (true AM, both channels).
     this.tremolo = new T.Tremolo({
       frequency: p.entrainmentHz,
       depth: p.amDepth,
       spread: 0,
       type: 'sine',
     }).start();
-    this.tremolo.connect(this.comp);
+    this.tremolo.connect(this.masterVol);
 
-    this.widener = new T.StereoWidener(0.6);
-    this.widener.connect(this.tremolo);
+    // ammedBus: arp + melody + bass + sub feed the modulated path
+    this.ammedBus = new T.Gain(1);
+    this.ammedBus.connect(this.tremolo);
 
-    this.masterVol = new T.Volume(-60); // start silent; play() fades in
-    this.masterVol.connect(this.widener);
-
-    // ── Pad effects: filter (slow LFO) → chorus → reverb ─────────────────────
+    // ── Pad effects: filter (slow LFO) → chorus → reverb → smooth bus ────────
     this.padReverb = new T.Reverb({ decay: p.reverbDecay, wet: 0.55, preDelay: 0.02 });
     await this.padReverb.ready;
-    this.padReverb.connect(this.masterVol);
+    this.padReverb.connect(this.smoothBus);
 
     this.padChorus = new T.Chorus({ frequency: 0.6, delayTime: 3.5, depth: 0.7, wet: 0.4 }).start();
     this.padChorus.connect(this.padReverb);
@@ -268,7 +285,7 @@ export class AmbientMusicEngine {
     // ── Arpeggio effects: delay → reverb ────────────────────────────────────
     this.arpReverb = new T.Reverb({ decay: p.reverbDecay * 0.6, wet: 0.45 });
     await this.arpReverb.ready;
-    this.arpReverb.connect(this.masterVol);
+    this.arpReverb.connect(this.ammedBus);
 
     this.arpDelay = new T.FeedbackDelay({ delayTime: '8n', feedback: 0.3, wet: 0.25 });
     this.arpDelay.connect(this.arpReverb);
@@ -276,7 +293,7 @@ export class AmbientMusicEngine {
     // ── Melody reverb ────────────────────────────────────────────────────────
     this.melReverb = new T.Reverb({ decay: p.reverbDecay * 0.5, wet: 0.5 });
     await this.melReverb.ready;
-    this.melReverb.connect(this.masterVol);
+    this.melReverb.connect(this.ammedBus);
 
     // ── Pad synth — fatsawtooth for rich, lush chords ───────────────────────
     this.padSynth = new T.PolySynth(T.Synth, {
@@ -311,14 +328,14 @@ export class AmbientMusicEngine {
         envelope: { attack: 0.05, decay: 0.25, sustain: 0.5, release: 0.4 },
         volume: -14,
       });
-      this.bassSynth.connect(this.masterVol);
+      this.bassSynth.connect(this.ammedBus);
 
       this.subSynth = new T.Synth({
         oscillator: { type: 'sine' },
         envelope: { attack: 0.08, decay: 0.3, sustain: 0.6, release: 0.5 },
         volume: -18,
       });
-      this.subSynth.connect(this.masterVol);
+      this.subSynth.connect(this.ammedBus);
     }
 
     // ── Melody synth — triangle, expressive ─────────────────────────────────
@@ -413,6 +430,8 @@ export class AmbientMusicEngine {
         this.padChorus?.dispose();
         this.padReverb?.dispose();
         this.melReverb?.dispose();
+        this.smoothBus?.dispose();
+        this.ammedBus?.dispose();
         this.masterVol?.dispose();
         this.widener?.dispose();
         this.tremolo?.dispose();
