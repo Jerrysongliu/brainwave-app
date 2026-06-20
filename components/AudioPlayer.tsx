@@ -13,7 +13,10 @@ import {
 } from '@/lib/noise-engine';
 import { BrainWaveEngine } from '@/lib/audio-engine';
 import { AmbientMusicEngine, MUSIC_PROFILES } from '@/lib/ambient-music-engine';
+import { RealMusicEngine } from '@/lib/real-music-engine';
+import { isRealMusicStyle } from '@/lib/music-tracks';
 import { STATE_STYLES, MUSIC_STYLES, DEFAULT_STYLE, type StyleId } from '@/lib/music-styles';
+import type { MentalState } from '@/types';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -25,14 +28,37 @@ interface Props {
 
 const NOISE_CATEGORIES = Object.keys(NOISE_CATEGORY_LABELS) as NoiseCategory[];
 
+/** Shared surface so the player can swap between the synth and real-track engines. */
+interface MusicEngine {
+  init: (state: MentalState, styleId?: StyleId) => Promise<void>;
+  play: () => void;
+  pause: () => void;
+  resume: () => void;
+  setVolume: (v: number) => void;
+  fadeOut: (sec?: number) => void;
+  dispose: () => void;
+  readonly isPlaying: boolean;
+}
+
+/** Real recordings for Classical/Lo-fi/Piano; synth engine for the rest. */
+function makeMusicEngine(styleId: StyleId, onTitle: (t: string) => void): MusicEngine {
+  if (isRealMusicStyle(styleId)) {
+    const e = new RealMusicEngine();
+    e.onTrackChange = onTitle;
+    return e;
+  }
+  return new AmbientMusicEngine();
+}
+
 export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compact = false }: Props) {
   const binauralRef = useRef<BrainWaveEngine | null>(null);
-  const musicRef    = useRef<AmbientMusicEngine | null>(null);
+  const musicRef    = useRef<MusicEngine | null>(null);
   const noiseRef    = useRef<NoiseEngine | null>(null);
 
   const [isPlaying,   setIsPlaying]   = useState(false);
   const [ready,       setReady]       = useState(false);
   const [error,       setError]       = useState('');
+  const [musicTitle,  setMusicTitle]  = useState('');
   const [activeCategory, setActiveCategory] = useState<NoiseCategory>('rain');
 
   const [binauralVol, setBinauralVol] = useState(0.20);
@@ -57,13 +83,14 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
 
   useEffect(() => {
     binauralRef.current = new BrainWaveEngine();
-    musicRef.current    = new AmbientMusicEngine();
+    musicRef.current    = makeMusicEngine(styleId, setMusicTitle);
     noiseRef.current    = new NoiseEngine();
     return () => {
       binauralRef.current?.dispose();
       musicRef.current?.dispose();
       noiseRef.current?.dispose();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleToggle = useCallback(async () => {
@@ -124,23 +151,24 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
     if (ready) await noiseRef.current?.setSoundscape(id);
   };
 
-  // Switching style rebuilds the music engine (instruments/effects change).
-  // The old engine fades out while the new one fades in for a smooth crossfade.
+  // Switching style rebuilds the music engine — and may switch engine TYPE
+  // (real-track player vs synth). Old engine fades out while the new fades in.
   const handleSelectStyle = async (id: StyleId) => {
     if (id === styleId) return;
     setStyleId(id);
+    if (!isRealMusicStyle(id)) setMusicTitle('');
     if (!ready) return;
     const wasPlaying = isPlaying;
     const old = musicRef.current;
     old?.fadeOut(0.8);
 
-    const music = new AmbientMusicEngine();
+    const music = makeMusicEngine(id, setMusicTitle);
     musicRef.current = music;
     await music.init(track.mentalState, id);
     music.setVolume(musicVol);
     if (wasPlaying) music.play();
 
-    // Dispose the old engine after its fade completes (Transport stays running).
+    // Dispose the old engine after its fade completes.
     setTimeout(() => old?.dispose(), 1200);
   };
 
@@ -160,7 +188,7 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
           {isPlaying ? '⏸' : '▶'}
         </button>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-white/80 truncate">{musicProfile.description.split(',')[0]}</p>
+          <p className="text-sm font-medium text-white/80 truncate">{musicTitle || musicProfile.description.split(',')[0]}</p>
           <p className="text-xs text-white/35 mt-0.5">
             {beatHz.toFixed(1)} Hz · {selectedItem.emoji} {selectedItem.label}
           </p>

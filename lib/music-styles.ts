@@ -56,7 +56,7 @@ export const MUSIC_STYLES: Record<StyleId, MusicStyle> = {
 
   classical: {
     id: 'classical', label: 'Classical', emoji: '🎻',
-    description: 'String ensemble with a soft piano voice, orchestral',
+    description: 'Real recordings — Vivaldi, Bach, Mozart (study classical)',
     pad:  { oscillator: { type: 'fatsawtooth', count: 3, spread: 20 }, filterFreq: 2200, chorus: true, volume: -10 },
     arp:  { oscillator: { type: 'triangle' }, volume: -14, delayWet: 0.15, delayFeedback: 0.2 },
     // soft piano/violin lead
@@ -78,7 +78,7 @@ export const MUSIC_STYLES: Record<StyleId, MusicStyle> = {
 
   lofi: {
     id: 'lofi', label: 'Lo-fi', emoji: '📻',
-    description: 'Warm Rhodes keys, mellow, tape-warble character',
+    description: 'Real lo-fi beats to study/relax to (HoliznaCC0, CC0)',
     pad:  { fm: true, harmonicity: 1, modulationIndex: 2, envelope: { attack: 0.01, decay: 1.8, sustain: 0.35, release: 1.4 }, filterFreq: 1100, chorus: true, volume: -9 },
     arp:  { fm: true, harmonicity: 1, modulationIndex: 2.5, envelope: { attack: 0.005, decay: 0.3, sustain: 0.15, release: 1.0 }, volume: -13, delayWet: 0.2, delayFeedback: 0.28 },
     lead: null, // mellow — no bright lead
@@ -87,8 +87,8 @@ export const MUSIC_STYLES: Record<StyleId, MusicStyle> = {
   },
 
   piano: {
-    id: 'piano', label: 'Felt Piano', emoji: '🎹',
-    description: 'Sparse, intimate felt-piano chords',
+    id: 'piano', label: 'Piano', emoji: '🎹',
+    description: 'Real piano — Chopin nocturnes, Debussy Clair de Lune',
     // percussive, decaying "piano" chords instead of sustained pads
     pad:  { fm: true, harmonicity: 3, modulationIndex: 5, envelope: { attack: 0.005, decay: 1.6, sustain: 0.08, release: 1.4 }, filterFreq: 3200, chorus: false, volume: -8 },
     arp:  { fm: true, harmonicity: 3, modulationIndex: 5, envelope: { attack: 0.005, decay: 1.2, sustain: 0.05, release: 1.0 }, volume: -12, delayWet: 0.18, delayFeedback: 0.25 },

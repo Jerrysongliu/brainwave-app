@@ -1,0 +1,29 @@
+BrainWave — Music Credits
+=========================
+
+Real recordings used for the Classical, Lo-fi, and Piano music styles, trimmed
+to MP3 and loudness-normalized. Each remains under its original license. CC BY /
+CC BY-SA require attribution (provided); CC0 / Public Domain require none.
+
+— Lo-fi —  (HoliznaCC0 — "Public Domain Lofi", CC0 1.0)
+lofi-1.mp3 .. lofi-4.mp3
+  HoliznaCC0 — CC0 1.0 (public domain, no attribution required)
+  https://freemusicarchive.org/music/holiznacc0/public-domain-lofi
+
+— Classical —
+classical-1.mp3 — Vivaldi, "Spring" (The Four Seasons), mvt. 1 — John Harrison (violin)
+  CC BY-SA — https://commons.wikimedia.org/wiki/File:Vivaldi_-_Four_Seasons_1_Spring_mvt_1_Allegro_-_John_Harrison_violin.oga
+classical-2.mp3 — J.S. Bach, "Air on the G String" (Suite No. 3)
+  Public Domain — https://commons.wikimedia.org/wiki/File:Air_(Bach).ogg
+classical-3.mp3 — Mozart, "Eine kleine Nachtmusik", 1. Allegro
+  CC BY-SA 2.0 — https://commons.wikimedia.org/wiki/File:Mozart_-_Eine_kleine_Nachtmusik_-_1._Allegro.ogg
+classical-4.mp3 — J.S. Bach, Brandenburg Concerto No. 3, 1. Allegro
+  CC BY-SA 2.0 — https://commons.wikimedia.org/wiki/File:Bach_-_Brandenburg_Concerto_No._3_-_1._Allegro.ogg
+
+— Piano —
+piano-1.mp3 — Chopin, Nocturne in E-flat, Op. 9 No. 2 — Frank Lévy
+  Public Domain — https://commons.wikimedia.org/wiki/File:Chopin_-_Nocturne_No._2_in_E-flat_major,_Op._9_No._2_(Frank_Levy).flac
+piano-2.mp3 — Debussy, "Clair de Lune" (Suite bergamasque)
+  Public Domain — https://commons.wikimedia.org/wiki/File:Clair_de_Lune_by_Claude_Debussy_(1905,_piano_solo).opus
+piano-3.mp3 — Chopin, Nocturne in C-sharp minor, Op. posth.
+  CC BY 3.0 — https://commons.wikimedia.org/wiki/File:Chopin,_Nocturne_in_C-sharp_minor,_Op._Posth.ogg
