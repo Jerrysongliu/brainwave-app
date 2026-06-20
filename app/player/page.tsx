@@ -100,7 +100,7 @@ export default function PlayerPage() {
       <div className="relative w-full max-w-2xl px-5 pt-4">
         <button
           onClick={() => router.push('/')}
-          className="flex items-center gap-1.5 text-sm text-white/30 hover:text-white/70 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-white/55 hover:text-white/90 transition-colors"
         >
           ← New session
         </button>
@@ -113,12 +113,12 @@ export default function PlayerPage() {
         <div className="flex flex-col items-center gap-5 pt-4">
           <NeuralOrb mentalState={track.mentalState} isPlaying={isPlaying} size={220} />
 
-          <div className="text-center space-y-1.5">
-            <p className="text-xs text-white/30 tracking-widest uppercase">{meta.label}</p>
-            <h1 className="text-2xl font-bold text-white">{track.title}</h1>
-            <p className="text-sm text-white/40">{track.duration} min · {track.intensity}</p>
-            <div className="pt-1">
-              <span className="font-mono text-2xl font-light text-white/70 tabular-nums tracking-wider">
+          <div className="text-center space-y-2">
+            <p className="text-xs text-white/55 tracking-[0.2em] uppercase font-medium">{meta.label}</p>
+            <h1 className="text-3xl font-bold text-white">{track.title}</h1>
+            <p className="text-[15px] text-white/55">{track.duration} min · {track.intensity}</p>
+            <div className="pt-1.5">
+              <span className="font-mono text-3xl font-light text-white/80 tabular-nums tracking-wider">
                 {elapsed}
               </span>
             </div>
@@ -139,11 +139,11 @@ export default function PlayerPage() {
           {/* Expand/collapse toggle below the player */}
           <button
             onClick={() => setShowMixer((v) => !v)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 glass rounded-2xl text-xs text-white/35 hover:text-white/60 transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 glass rounded-[20px] text-sm text-white/65 hover:text-white/90 transition-colors active:scale-[0.99]"
           >
-            <span>🎚️</span>
-            <span>{showMixer ? 'Hide mixer & soundscape' : 'Show mixer & soundscape'}</span>
-            <span className="text-white/20">{showMixer ? '▲' : '▼'}</span>
+            <span className="text-base">🎚️</span>
+            <span className="font-medium">{showMixer ? 'Hide mixer & soundscape' : 'Show mixer & soundscape'}</span>
+            <span className="text-white/40">{showMixer ? '▲' : '▼'}</span>
           </button>
         </div>
 
@@ -157,13 +157,13 @@ export default function PlayerPage() {
           <button
             onClick={handleSave}
             disabled={saved}
-            className="flex-1 py-3 rounded-xl glass text-sm font-medium hover:bg-white/8 disabled:opacity-40 transition-all"
+            className="flex-1 py-4 rounded-[20px] glass text-[15px] font-semibold hover:bg-white/10 disabled:opacity-40 transition-all active:scale-[0.98]"
           >
             {saved ? '✓ Saved' : '+ Save'}
           </button>
           <button
             onClick={() => router.push('/')}
-            className="flex-1 py-3 rounded-xl glass text-sm font-medium hover:bg-white/8 transition-all"
+            className="flex-1 py-4 rounded-[20px] glass text-[15px] font-semibold hover:bg-white/10 transition-all active:scale-[0.98]"
           >
             ↺ New session
           </button>

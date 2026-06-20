@@ -173,42 +173,42 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
   };
 
   return (
-    <div className="glass rounded-2xl p-5 space-y-5">
+    <div className="glass rounded-[28px] p-6 space-y-6">
       {error && (
-        <div className="text-red-400/80 text-xs bg-red-400/8 rounded-xl px-3 py-2">{error}</div>
+        <div className="text-red-500/90 text-sm bg-red-400/10 rounded-2xl px-4 py-2.5">{error}</div>
       )}
 
       {/* Play button + track summary */}
       <div className="flex items-center gap-4">
         <button
           onClick={handleToggle}
-          className="w-14 h-14 flex-shrink-0 rounded-full bg-white/10 hover:bg-white/18 active:scale-95 flex items-center justify-center text-xl transition-all border border-white/10"
+          className="w-16 h-16 flex-shrink-0 rounded-full bg-white/12 hover:bg-white/20 active:scale-95 flex items-center justify-center text-2xl transition-all border border-white/15 shadow-sm"
           aria-label={isPlaying ? 'Pause' : 'Play'}
         >
           {isPlaying ? '⏸' : '▶'}
         </button>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-white/80 truncate">{musicTitle || musicProfile.description.split(',')[0]}</p>
-          <p className="text-xs text-white/35 mt-0.5">
+          <p className="text-base font-semibold text-white/90 truncate">{musicTitle || musicProfile.description.split(',')[0]}</p>
+          <p className="text-sm text-white/55 mt-0.5">
             {beatHz.toFixed(1)} Hz · {selectedItem.emoji} {selectedItem.label}
           </p>
         </div>
       </div>
 
-      {/* Mixer sliders — hidden in compact mode */}
-      <div className={compact ? 'hidden' : 'space-y-3.5'}>
-        <p className="text-[10px] font-medium text-white/25 uppercase tracking-[0.15em]">Mixer</p>
+      {/* Mixer sliders — hidden in compact mode.
+          (Soundscape volume lives in the Soundscape section, not here.) */}
+      <div className={compact ? 'hidden' : 'space-y-4'}>
+        <p className="text-xs font-semibold text-white/45 uppercase tracking-[0.14em]">Mixer</p>
 
         {[
           { label: '🧠 Binaural Beat',  suffix: `${beatHz.toFixed(1)} Hz`,          value: beatHz,      min: 0.5, max: 40, step: 0.5, onChange: handleBeatHz },
           { label: '〰️ Binaural Tone',  suffix: `${Math.round(binauralVol * 100)}%`, value: binauralVol, min: 0,   max: 1,  step: 0.01, onChange: handleBinauralVol },
-          { label: '🎹 Ambient Music',   suffix: `${Math.round(musicVol * 100)}%`,    value: musicVol,    min: 0,   max: 1,  step: 0.01, onChange: handleMusicVol },
-          { label: '🌿 Nature Sounds',  suffix: `${Math.round(natureVol * 100)}%`,    value: natureVol,   min: 0,   max: 1,  step: 0.01, onChange: handleNatureVol },
+          { label: '🎹 Music',           suffix: `${Math.round(musicVol * 100)}%`,    value: musicVol,    min: 0,   max: 1,  step: 0.01, onChange: handleMusicVol },
         ].map(({ label, suffix, value, min, max, step, onChange }) => (
-          <div key={label} className="space-y-1">
-            <div className="flex justify-between text-xs text-white/45">
+          <div key={label} className="space-y-1.5">
+            <div className="flex justify-between text-sm text-white/65">
               <span>{label}</span>
-              <span className="font-mono text-white/30">{suffix}</span>
+              <span className="font-mono text-white/45">{suffix}</span>
             </div>
             <input
               type="range" min={min} max={max} step={step}
@@ -219,14 +219,14 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
           </div>
         ))}
 
-        <div className="flex justify-between text-[9px] text-white/20 -mt-1">
+        <div className="flex justify-between text-[11px] text-white/40 -mt-0.5">
           <span>δ Delta</span><span>θ Theta</span><span>α Alpha</span><span>β Beta</span><span>γ Gamma</span>
         </div>
       </div>
 
       {/* Music style picker — hidden in compact mode */}
-      <div className={compact ? 'hidden' : 'space-y-2.5'}>
-        <p className="text-[10px] font-medium text-white/25 uppercase tracking-[0.15em]">Music Style</p>
+      <div className={compact ? 'hidden' : 'space-y-3'}>
+        <p className="text-xs font-semibold text-white/45 uppercase tracking-[0.14em]">Music Style</p>
         <div className="flex gap-2 flex-wrap">
           {styleOptions.map((id) => {
             const st = MUSIC_STYLES[id];
@@ -235,36 +235,36 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
                 key={id}
                 onClick={() => handleSelectStyle(id)}
                 className={cn(
-                  'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-all',
+                  'flex items-center gap-2 text-sm px-4 py-2.5 rounded-2xl border transition-all active:scale-95',
                   styleId === id
-                    ? 'bg-white/15 border-white/30 text-white'
-                    : 'bg-white/3 border-white/8 hover:bg-white/8 text-white/45'
+                    ? 'bg-white/15 border-white/30 text-white shadow-sm'
+                    : 'bg-white/5 border-white/10 hover:bg-white/10 text-white/60'
                 )}
               >
-                <span>{st.emoji}</span>
+                <span className="text-base leading-none">{st.emoji}</span>
                 <span>{st.label}</span>
               </button>
             );
           })}
         </div>
-        <p className="text-[9px] text-white/18">{MUSIC_STYLES[styleId].description}</p>
+        <p className="text-xs text-white/45">{MUSIC_STYLES[styleId].description}</p>
       </div>
 
       {/* Soundscape picker — hidden in compact mode */}
-      <div className={compact ? 'hidden' : 'space-y-2.5'}>
-        <p className="text-[10px] font-medium text-white/25 uppercase tracking-[0.15em]">Soundscape</p>
+      <div className={compact ? 'hidden' : 'space-y-3'}>
+        <p className="text-xs font-semibold text-white/45 uppercase tracking-[0.14em]">Soundscape</p>
 
         {/* Category tabs */}
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
           {NOISE_CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
               className={cn(
-                'text-[11px] px-2.5 py-1 rounded-lg border transition-all',
+                'text-sm px-3.5 py-1.5 rounded-xl border transition-all active:scale-95',
                 activeCategory === cat
                   ? 'bg-white/12 border-white/25 text-white'
-                  : 'bg-transparent border-white/8 text-white/35 hover:text-white/55 hover:border-white/15'
+                  : 'bg-transparent border-white/10 text-white/55 hover:text-white/80 hover:border-white/20'
               )}
             >
               {NOISE_CATEGORY_LABELS[cat]}
@@ -279,23 +279,23 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
               key={sound.id}
               onClick={() => handleSelectSound(sound.id)}
               className={cn(
-                'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-all',
+                'flex items-center gap-2 text-sm px-4 py-2.5 rounded-2xl border transition-all active:scale-95',
                 selectedId === sound.id
-                  ? 'bg-white/15 border-white/30 text-white'
-                  : 'bg-white/3 border-white/8 hover:bg-white/8 text-white/45'
+                  ? 'bg-white/15 border-white/30 text-white shadow-sm'
+                  : 'bg-white/5 border-white/10 hover:bg-white/10 text-white/60'
               )}
             >
-              <span>{sound.emoji}</span>
+              <span className="text-base leading-none">{sound.emoji}</span>
               <span>{sound.label}</span>
             </button>
           ))}
         </div>
 
-        {/* Dedicated soundscape volume — synced with the mixer's Nature slider */}
-        <div className="space-y-1 pt-0.5">
-          <div className="flex justify-between text-xs text-white/45">
+        {/* Soundscape volume (the single control for nature sound level) */}
+        <div className="space-y-1.5 pt-1">
+          <div className="flex justify-between text-sm text-white/65">
             <span>🔊 {selectedItem.label} volume</span>
-            <span className="font-mono text-white/30">{Math.round(natureVol * 100)}%</span>
+            <span className="font-mono text-white/45">{Math.round(natureVol * 100)}%</span>
           </div>
           <input
             type="range" min={0} max={1} step={0.01}
@@ -305,7 +305,7 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
           />
         </div>
 
-        <p className="text-[9px] text-white/18">
+        <p className="text-[11px] text-white/40">
           Real field recordings · seamless crossfade loop · CC0/CC-licensed
         </p>
       </div>
