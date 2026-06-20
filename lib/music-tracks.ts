@@ -20,6 +20,12 @@ export interface MusicTrack {
 }
 
 export const MUSIC_TRACKS: Partial<Record<StyleId, MusicTrack[]>> = {
+  ambient: [
+    { file: '/music/ambient-1.mp3', title: 'Cosmic Waves',       artist: 'HoliznaCC0', license: 'CC0' },
+    { file: '/music/ambient-2.mp3', title: 'Dreamscape',         artist: 'HoliznaCC0', license: 'CC0' },
+    { file: '/music/ambient-3.mp3', title: 'Drifting',           artist: 'HoliznaCC0', license: 'CC0' },
+    { file: '/music/ambient-4.mp3', title: 'Deep Meditation',    artist: 'HoliznaCC0', license: 'CC0' },
+  ],
   classical: [
     { file: '/music/classical-1.mp3', title: 'Vivaldi — Spring (Four Seasons)', artist: 'John Harrison', license: 'CC BY-SA' },
     { file: '/music/classical-2.mp3', title: 'Bach — Air on the G String',       artist: 'Public Domain', license: 'Public Domain' },

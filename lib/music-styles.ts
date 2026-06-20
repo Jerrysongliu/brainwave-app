@@ -12,7 +12,7 @@
 
 import type { MentalState } from '@/types';
 
-export type StyleId = 'cinematic' | 'classical' | 'electronic' | 'lofi' | 'piano';
+export type StyleId = 'ambient' | 'cinematic' | 'classical' | 'electronic' | 'lofi' | 'piano';
 
 export interface ADSR { attack: number; decay: number; sustain: number; release: number; }
 
@@ -44,6 +44,18 @@ export interface MusicStyle {
 // ─── Style definitions ────────────────────────────────────────────────────────
 
 export const MUSIC_STYLES: Record<StyleId, MusicStyle> = {
+  // Real deep-ambient recordings (RealMusicEngine). Synth params below are
+  // unused for real styles but required by the type — kept as sane defaults.
+  ambient: {
+    id: 'ambient', label: 'Immersive', emoji: '🌌',
+    description: 'Deep, spacious ambient — immersive, high-bitrate (CC0)',
+    pad:  { oscillator: { type: 'fatsawtooth', count: 3, spread: 30 }, filterFreq: 1300, chorus: true, volume: -9 },
+    arp:  null,
+    lead: null,
+    bass: { oscillator: { type: 'sine' }, volume: -14 },
+    reverbWetScale: 1.3, reverbDecayScale: 1.4, masterTrim: 0, lofi: false,
+  },
+
   cinematic: {
     id: 'cinematic', label: 'Cinematic', emoji: '🎬',
     description: 'Lush evolving string pads, wide and spacious',
@@ -101,21 +113,21 @@ export const MUSIC_STYLES: Record<StyleId, MusicStyle> = {
 // ─── Which styles each function offers (first = default) ──────────────────────
 
 export const STATE_STYLES: Record<MentalState, StyleId[]> = {
-  focus:            ['electronic', 'cinematic', 'lofi'],
-  learning:         ['piano', 'lofi', 'cinematic'],
-  relaxation:       ['cinematic', 'piano', 'classical'],
-  sleep:            ['cinematic', 'piano', 'lofi'],
-  'mood-boost':     ['electronic', 'cinematic', 'lofi'],
-  meditation:       ['cinematic', 'classical', 'piano'],
-  'anxiety-relief': ['piano', 'cinematic', 'lofi'],
+  focus:            ['ambient', 'lofi', 'electronic'],
+  learning:         ['ambient', 'piano', 'lofi'],
+  relaxation:       ['ambient', 'piano', 'classical'],
+  sleep:            ['ambient', 'piano', 'cinematic'],
+  'mood-boost':     ['lofi', 'ambient', 'electronic'],
+  meditation:       ['ambient', 'classical', 'piano'],
+  'anxiety-relief': ['ambient', 'piano', 'lofi'],
 };
 
 export const DEFAULT_STYLE: Record<MentalState, StyleId> = {
-  focus:            'electronic',
-  learning:         'piano',
-  relaxation:       'cinematic',
-  sleep:            'cinematic',
-  'mood-boost':     'electronic',
-  meditation:       'cinematic',
-  'anxiety-relief': 'piano',
+  focus:            'ambient',
+  learning:         'ambient',
+  relaxation:       'ambient',
+  sleep:            'ambient',
+  'mood-boost':     'lofi',
+  meditation:       'ambient',
+  'anxiety-relief': 'ambient',
 };
