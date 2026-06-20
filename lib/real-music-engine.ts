@@ -73,6 +73,19 @@ export class RealMusicEngine {
     if (this._isPlaying) this._ramp(this._vol, 0.3);
   }
 
+  /** Skip to the next track in the playlist (tap the active genre again). */
+  next(): void {
+    if (!this.el || this.playlist.length < 2) return;
+    if (this._isPlaying) {
+      // quick fade out, then advance + fade the next one in
+      this._ramp(0, 0.35, () => this._next());
+    } else {
+      this.idx = (this.idx + 1) % this.playlist.length;
+      this.el.src = this.playlist[this.idx].file;
+      this._announce();
+    }
+  }
+
   /** Fade out (used for a smooth crossfade when switching styles). */
   fadeOut(sec = 0.8): void {
     this._isPlaying = false;

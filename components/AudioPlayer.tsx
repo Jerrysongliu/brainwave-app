@@ -36,6 +36,7 @@ interface MusicEngine {
   resume: () => void;
   setVolume: (v: number) => void;
   fadeOut: (sec?: number) => void;
+  next?: () => void;        // real-track engine: skip to next track
   dispose: () => void;
   readonly isPlaying: boolean;
 }
@@ -146,6 +147,11 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
   const handleBeatHz      = (v: number) => { setBeatHz(v);      binauralRef.current?.rampBeat(v, 3); };
 
   const handleSelectSound = async (id: NoiseSoundscape) => {
+    // Tapping the already-selected scene cycles to its next recording.
+    if (id === selectedId) {
+      if (ready) await noiseRef.current?.cycleVariant();
+      return;
+    }
     setSelectedId(id);
     onSoundscapeChange?.(id);
     if (ready) await noiseRef.current?.setSoundscape(id);
@@ -154,7 +160,11 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
   // Switching style rebuilds the music engine — and may switch engine TYPE
   // (real-track player vs synth). Old engine fades out while the new fades in.
   const handleSelectStyle = async (id: StyleId) => {
-    if (id === styleId) return;
+    // Tapping the active style again skips to the next real track (if any).
+    if (id === styleId) {
+      if (ready && isRealMusicStyle(id)) musicRef.current?.next?.();
+      return;
+    }
     setStyleId(id);
     if (!isRealMusicStyle(id)) setMusicTitle('');
     if (!ready) return;
@@ -247,7 +257,10 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
             );
           })}
         </div>
-        <p className="text-xs text-white/45">{MUSIC_STYLES[styleId].description}</p>
+        <p className="text-xs text-white/45">
+          {MUSIC_STYLES[styleId].description}
+          {isRealMusicStyle(styleId) && <span className="text-white/35"> · tap again to skip track</span>}
+        </p>
       </div>
 
       {/* Soundscape picker — hidden in compact mode */}
@@ -306,7 +319,7 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
         </div>
 
         <p className="text-[11px] text-white/40">
-          Real field recordings · seamless crossfade loop · CC0/CC-licensed
+          Real field recordings · tap a selected sound again for another recording
         </p>
       </div>
 

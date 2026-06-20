@@ -27,23 +27,25 @@ export type NoiseSoundscape =
 export type NoiseCategory = 'rain' | 'water' | 'fire' | 'forest' | 'night';
 
 interface SceneProfile {
-  file:  string;   // public path
-  gain:  number;   // 0–1 loudness normalization (design level at slider = 1)
-  xfade: number;   // crossfade seconds at the loop point
+  files: string[];  // one or more recordings; tap the active scene to cycle them
+  gain:  number;    // 0–1 loudness normalization (design level at slider = 1)
+  xfade: number;    // crossfade seconds at the loop point
 }
 
 // ─── Scene profiles ───────────────────────────────────────────────────────────
+// Scenes with multiple files: tapping the already-selected scene cycles to the
+// next recording (crossfaded). Single-file scenes just re-trigger.
 
 const PROFILES: Record<NoiseSoundscape, SceneProfile> = {
-  rain:   { file: '/sounds/rain.mp3',   gain: 0.85, xfade: 1.5 },
-  storm:  { file: '/sounds/storm.mp3',  gain: 0.80, xfade: 3.0 },
-  ocean:  { file: '/sounds/ocean.mp3',  gain: 0.95, xfade: 3.0 },
-  river:  { file: '/sounds/river.mp3',  gain: 0.80, xfade: 2.5 },
-  fire:   { file: '/sounds/fire.mp3',   gain: 0.95, xfade: 2.0 },
-  forest: { file: '/sounds/forest.mp3', gain: 0.90, xfade: 2.0 },
-  pond:   { file: '/sounds/pond.mp3',   gain: 0.90, xfade: 2.5 },
-  night:  { file: '/sounds/night.mp3',  gain: 0.85, xfade: 1.2 },
-  none:   { file: '',                   gain: 0,    xfade: 0   },
+  rain:   { files: ['/sounds/rain.mp3', '/sounds/rain-2.mp3'],     gain: 0.85, xfade: 1.5 },
+  storm:  { files: ['/sounds/storm.mp3', '/sounds/storm-2.mp3'],   gain: 0.80, xfade: 3.0 },
+  ocean:  { files: ['/sounds/ocean.mp3', '/sounds/ocean-2.mp3'],   gain: 0.95, xfade: 3.0 },
+  river:  { files: ['/sounds/river.mp3'],                          gain: 0.80, xfade: 2.5 },
+  fire:   { files: ['/sounds/fire.mp3', '/sounds/fire-2.mp3'],     gain: 0.95, xfade: 2.0 },
+  forest: { files: ['/sounds/forest.mp3', '/sounds/forest-2.mp3'], gain: 0.90, xfade: 2.0 },
+  pond:   { files: ['/sounds/pond.mp3'],                           gain: 0.90, xfade: 2.5 },
+  night:  { files: ['/sounds/night.mp3', '/sounds/night-2.mp3'],   gain: 0.85, xfade: 1.2 },
+  none:   { files: [],                                             gain: 0,    xfade: 0   },
 };
 
 // ─── Public library (for UI) ──────────────────────────────────────────────────
@@ -93,9 +95,9 @@ export class NoiseEngine {
 
   private _isPlaying = false;
   private _initialized = false;
-  private _loading = false;
   private _volume = 0.65;
   private _soundscape: NoiseSoundscape = 'rain';
+  private _variant = 0;          // which recording within the current scene
 
   async init(): Promise<void> {
     if (this._initialized) return;
@@ -109,30 +111,29 @@ export class NoiseEngine {
   }
 
   async setSoundscape(id: NoiseSoundscape): Promise<void> {
-    this._soundscape = id;
+    if (id !== this._soundscape) { this._soundscape = id; this._variant = 0; }
     if (!this._initialized) return;
-    const myToken = ++this.token;       // cancel any in-flight loop/load
-    this._stopActive(0.6);
-    if (this.loopTimer) { clearTimeout(this.loopTimer); this.loopTimer = null; }
-    if (id === 'none') return;
+    await this._switchTo(this._currentFile());
+  }
 
-    const buf = await this._load(id);
-    if (!buf || myToken !== this.token) return; // superseded
-    if (this._isPlaying) this._startLoop(buf, PROFILES[id], myToken);
+  /** Tap the already-selected scene again → crossfade to its next recording. */
+  async cycleVariant(): Promise<void> {
+    const n = PROFILES[this._soundscape].files.length;
+    if (n < 2) return;
+    this._variant = (this._variant + 1) % n;
+    if (this._initialized) await this._switchTo(this._currentFile());
   }
 
   play(): void {
     if (!this._initialized) return;
     this._isPlaying = true;
-    const id = this._soundscape;
-    if (id === 'none') return;
+    const file = this._currentFile();
+    if (!file) return;
     const myToken = ++this.token;
-    this._load(id).then((buf) => {
+    this._load(file).then((buf) => {
       if (!buf || myToken !== this.token || !this._isPlaying) return;
-      this.masterGain!.gain.cancelScheduledValues(this.ctx!.currentTime);
-      this.masterGain!.gain.setValueAtTime(this.masterGain!.gain.value, this.ctx!.currentTime);
-      this.masterGain!.gain.linearRampToValueAtTime(this._target(), this.ctx!.currentTime + 1.5);
-      this._startLoop(buf, PROFILES[id], myToken);
+      this._rampMaster(this._target(), 1.5);
+      this._startLoop(buf, PROFILES[this._soundscape], myToken);
     });
   }
 
@@ -167,8 +168,26 @@ export class NoiseEngine {
   }
 
   get isPlaying() { return this._isPlaying; }
+  get variantIndex() { return this._variant; }
+  get variantCount() { return PROFILES[this._soundscape].files.length; }
 
   // ── Private ─────────────────────────────────────────────────────────────────
+
+  private _currentFile(): string {
+    const f = PROFILES[this._soundscape].files;
+    return f.length ? f[this._variant % f.length] : '';
+  }
+
+  /** Crossfade the active loop over to `file` (used by scene switch + variant cycle). */
+  private async _switchTo(file: string): Promise<void> {
+    const myToken = ++this.token;        // cancel any in-flight loop/load
+    this._stopActive(0.6);
+    if (this.loopTimer) { clearTimeout(this.loopTimer); this.loopTimer = null; }
+    if (!file) return;
+    const buf = await this._load(file);
+    if (!buf || myToken !== this.token) return; // superseded
+    if (this._isPlaying) this._startLoop(buf, PROFILES[this._soundscape], myToken);
+  }
 
   private _target(): number {
     if (this._volume <= 0) return 0;
@@ -183,23 +202,18 @@ export class NoiseEngine {
     this.masterGain.gain.linearRampToValueAtTime(to, now + sec);
   }
 
-  private async _load(id: NoiseSoundscape): Promise<AudioBuffer | null> {
-    const prof = PROFILES[id];
-    if (!prof.file || !this.ctx) return null;
-    const cached = this.buffers.get(prof.file);
+  private async _load(file: string): Promise<AudioBuffer | null> {
+    if (!file || !this.ctx) return null;
+    const cached = this.buffers.get(file);
     if (cached) return cached;
-    if (this._loading) { /* allow concurrent; each awaits its own fetch */ }
     try {
-      this._loading = true;
-      const res = await fetch(prof.file);
+      const res = await fetch(file);
       const arr = await res.arrayBuffer();
       const buf = await this.ctx.decodeAudioData(arr);
-      this.buffers.set(prof.file, buf);
+      this.buffers.set(file, buf);
       return buf;
     } catch {
       return null;
-    } finally {
-      this._loading = false;
     }
   }
 

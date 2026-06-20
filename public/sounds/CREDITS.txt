@@ -37,3 +37,17 @@ pond.mp3   — "Nature sounds ambience in a Dordogne pond" by Glaneur de sons
 night.mp3  — "Field cricket unedited" by Thatcher
              CC BY-SA 3.0 — https://creativecommons.org/licenses/by-sa/3.0
              https://commons.wikimedia.org/wiki/File:Field_cricket_unedited.ogg
+
+— Additional scene variants (tap a selected scene again to switch) —
+rain-2.mp3   — "Heavy rain in Glenshaw, PA"        CC BY-SA 3.0
+               https://commons.wikimedia.org/wiki/File:Heavy_rain_in_Glenshaw,_PA.ogg
+storm-2.mp3  — "Rain and thunder (1)"              Public Domain
+               https://commons.wikimedia.org/wiki/File:Rain_and_thunder_(1).ogg
+ocean-2.mp3  — "On a pebble beach"                 Public Domain
+               https://commons.wikimedia.org/wiki/File:On_a_pebble_beach.ogg
+fire-2.mp3   — "Dry grass burning in open fireplace"  Public Domain
+               https://commons.wikimedia.org/wiki/File:Dry_grass_burning_in_open_fireplace.ogg
+forest-2.mp3 — "Birdsong morning 01"               CC BY-SA 4.0
+               https://commons.wikimedia.org/wiki/File:Birdsong_morning_01.ogg
+night-2.mp3  — "Field cricket Gryllus pennsylvanicus"  CC BY-SA 3.0
+               https://commons.wikimedia.org/wiki/File:Field_cricket_Gryllus_pennsylvanicus.ogg

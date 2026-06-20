@@ -42,6 +42,9 @@ export const MUSIC_TRACKS: Partial<Record<StyleId, MusicTrack[]>> = {
     { file: '/music/lofi-2.mp3', title: 'Lo-fi — Dusk',         artist: 'HoliznaCC0', license: 'CC0' },
     { file: '/music/lofi-3.mp3', title: 'Lo-fi — Study Hall',   artist: 'HoliznaCC0', license: 'CC0' },
     { file: '/music/lofi-4.mp3', title: 'Lo-fi — Rainy Window', artist: 'HoliznaCC0', license: 'CC0' },
+    { file: '/music/lofi-5.mp3', title: 'Lo-fi — Mellow',       artist: 'HoliznaCC0', license: 'CC0' },
+    { file: '/music/lofi-6.mp3', title: 'Lo-fi — Nightfall',    artist: 'HoliznaCC0', license: 'CC0' },
+    { file: '/music/lofi-7.mp3', title: 'Lo-fi — Daydream',     artist: 'HoliznaCC0', license: 'CC0' },
   ],
 };
 
