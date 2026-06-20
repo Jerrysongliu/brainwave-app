@@ -1,0 +1,39 @@
+BrainWave — Soundscape Audio Credits
+====================================
+
+The ambient recordings below were sourced from Wikimedia Commons and trimmed /
+loudness-normalized for use in this app. Each remains under its original license.
+CC BY and CC BY-SA require attribution (provided here); CC BY-SA files remain
+under share-alike terms. CC0 / Public Domain require no attribution.
+
+rain.mp3   — "Heavy Rain in Summer" by Fiver, der Hellseher
+             CC BY-SA 3.0 — https://creativecommons.org/licenses/by-sa/3.0
+             https://commons.wikimedia.org/wiki/File:Heavy_Rain_in_Summer.ogg
+
+storm.mp3  — "Summer thunderstorm in the woods" by Serg Childed
+             CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0
+             https://commons.wikimedia.org/wiki/File:Summer_thunderstorm_in_the_woods.ogg
+
+ocean.mp3  — "NausetBeach" by Groov3
+             CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0
+             https://commons.wikimedia.org/wiki/File:NausetBeach.ogg
+
+river.mp3  — "stream-river-water-up-close" by jackthemurray
+             CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
+             https://commons.wikimedia.org/wiki/File:433589_jackthemurray_stream-river-water-up-close.wav
+
+fire.mp3   — "Campfire sound ambience" by Glaneur de sons
+             CC BY 3.0 — https://creativecommons.org/licenses/by/3.0
+             https://commons.wikimedia.org/wiki/File:Campfire_sound_ambience.ogg
+
+forest.mp3 — "Gentle breeze and birds singing" by ezwa
+             Public domain
+             https://commons.wikimedia.org/wiki/File:Gentle_breeze_and_birds_singing.ogg
+
+pond.mp3   — "Nature sounds ambience in a Dordogne pond" by Glaneur de sons
+             CC BY 3.0 — https://creativecommons.org/licenses/by/3.0
+             https://commons.wikimedia.org/wiki/File:Nature_sounds_ambience_in_a_Dordogne_pond.ogg
+
+night.mp3  — "Field cricket unedited" by Thatcher
+             CC BY-SA 3.0 — https://creativecommons.org/licenses/by-sa/3.0
+             https://commons.wikimedia.org/wiki/File:Field_cricket_unedited.ogg

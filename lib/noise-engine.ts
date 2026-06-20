@@ -1,12 +1,15 @@
 /**
- * NoiseEngine — synthesizes nature soundscapes using Tone.js
- * Never loops, never clicks, zero HTTP requests.
+ * NoiseEngine v2 — REAL recorded ambience with seamless crossfade looping.
  *
- * Signal chain:
- *   Noise → AutoFilter (LFO-driven) → Reverb → MasterVol → destination
+ * Replaces the synthesized white-noise scenes with bundled CC0 / Creative
+ * Commons field recordings (see /public/sounds/CREDITS.txt). Each scene is one
+ * recording that is looped *seamlessly* by overlapping two playheads with a
+ * short equal-time crossfade at the loop point — so there is no audible seam,
+ * regardless of whether the file was crafted to loop.
  *
- * The LFO makes the filter frequency sweep slowly, producing organic
- * texture: ocean waves, rain intensity, wind gusts, etc.
+ * Signal: AudioBufferSource → instanceGain (fade env) → masterGain (volume) → out
+ *
+ * Uses Tone's shared AudioContext so it coexists with the music/binaural engines.
  */
 
 import type { MentalState } from '@/types';
@@ -14,136 +17,56 @@ import type { MentalState } from '@/types';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type NoiseSoundscape =
-  | 'rain' | 'rain-heavy' | 'storm'
-  | 'ocean' | 'wind' | 'wind-howl'
-  | 'fire' | 'night' | 'forest'
+  | 'rain' | 'storm'
+  | 'ocean' | 'river'
+  | 'fire'
+  | 'forest' | 'pond'
+  | 'night'
   | 'none';
 
-interface NoiseProfile {
-  noiseType: 'white' | 'pink' | 'brown';
-  filterType: 'lowpass' | 'highpass' | 'bandpass';
-  baseFreq: number;
-  filterQ: number;
-  lfoRate: number;    // Hz  (0 = static filter)
-  lfoOctaves: number; // sweep range in octaves
-  reverbDecay: number;
-  reverbWet: number;
-  volume: number;     // dB (design loudness at slider = 1)
-  // ── Particle/crackle layer ──
-  // Randomly-triggered short noise bursts that give a scene its identity:
-  // rain droplet patter, fire crackle pops, cricket chirps. Randomly generated
-  // each time → never loops, no seam.
-  crackleEnabled: boolean;
-  crackleInterval: number; // seconds between potential bursts
-  crackleDensity: number;  // 0–1 probability a burst fires each interval
-  crackleFreqMin: number;  // bandpass center range for each burst (Hz)
-  crackleFreqMax: number;
-  crackleDecay: number;    // burst length in seconds
-  crackleVolume: number;   // dB
+export type NoiseCategory = 'rain' | 'water' | 'fire' | 'forest' | 'night';
+
+interface SceneProfile {
+  file:  string;   // public path
+  gain:  number;   // 0–1 loudness normalization (design level at slider = 1)
+  xfade: number;   // crossfade seconds at the loop point
 }
 
-// ─── Soundscape profiles ─────────────────────────────────────────────────────
-//
-// All soundscapes are sourced from WHITE noise and shaped by filters. White
-// noise loops seamlessly (independent samples → no audible seam), unlike Tone's
-// brown/pink noise whose short looped buffers produce a periodic low "thump".
-//
-// `volume` is hand-tuned for roughly EQUAL PERCEIVED loudness. The ear hears
-// midrange (1–4 kHz) far louder than low rumble, so low/dark soundscapes
-// (fire, ocean, gentle rain) get more gain (less negative dB) and bright ones
-// (storm, night, heavy rain) get less. Lowpass scenes also use a steeper
-// rolloff (set in _build) so they read as rumble, not hiss.
+// ─── Scene profiles ───────────────────────────────────────────────────────────
 
-const PROFILES: Record<NoiseSoundscape, NoiseProfile> = {
-  // Bed = continuous filtered white noise (seamless). crackle* = the random
-  // transient layer that gives each scene its recognizable character.
-  rain: {
-    noiseType:'white', filterType:'lowpass', baseFreq:600, filterQ:0.4,
-    lfoRate:0.06, lfoOctaves:0.5, reverbDecay:1.5, reverbWet:0.16, volume:-7,
-    crackleEnabled:true, crackleInterval:0.05, crackleDensity:0.55,
-    crackleFreqMin:1800, crackleFreqMax:6500, crackleDecay:0.03, crackleVolume:-13,
-  },
-  'rain-heavy': {
-    noiseType:'white', filterType:'lowpass', baseFreq:1100, filterQ:0.4,
-    lfoRate:0.12, lfoOctaves:0.7, reverbDecay:1.2, reverbWet:0.14, volume:-12,
-    crackleEnabled:true, crackleInterval:0.038, crackleDensity:0.78,
-    crackleFreqMin:2200, crackleFreqMax:8000, crackleDecay:0.025, crackleVolume:-9,
-  },
-  storm: {
-    noiseType:'white', filterType:'lowpass', baseFreq:1500, filterQ:0.3,
-    lfoRate:0.10, lfoOctaves:1.0, reverbDecay:2.0, reverbWet:0.22, volume:-13,
-    crackleEnabled:true, crackleInterval:0.035, crackleDensity:0.82,
-    crackleFreqMin:1600, crackleFreqMax:7500, crackleDecay:0.03, crackleVolume:-8,
-  },
-  ocean: {
-    noiseType:'white', filterType:'lowpass', baseFreq:480, filterQ:0.6,
-    lfoRate:0.05, lfoOctaves:1.6, reverbDecay:3.0, reverbWet:0.30, volume:-5,
-    crackleEnabled:false, crackleInterval:0.1, crackleDensity:0,
-    crackleFreqMin:0, crackleFreqMax:0, crackleDecay:0, crackleVolume:-60,
-  },
-  wind: {
-    noiseType:'white', filterType:'bandpass', baseFreq:700, filterQ:1.0,
-    lfoRate:0.10, lfoOctaves:1.2, reverbDecay:1.5, reverbWet:0.22, volume:-9,
-    crackleEnabled:false, crackleInterval:0.1, crackleDensity:0,
-    crackleFreqMin:0, crackleFreqMax:0, crackleDecay:0, crackleVolume:-60,
-  },
-  'wind-howl': {
-    noiseType:'white', filterType:'bandpass', baseFreq:1300, filterQ:1.8,
-    lfoRate:0.14, lfoOctaves:1.8, reverbDecay:2.0, reverbWet:0.26, volume:-11,
-    crackleEnabled:false, crackleInterval:0.1, crackleDensity:0,
-    crackleFreqMin:0, crackleFreqMax:0, crackleDecay:0, crackleVolume:-60,
-  },
-  fire: {
-    noiseType:'white', filterType:'lowpass', baseFreq:420, filterQ:0.3,
-    lfoRate:0.18, lfoOctaves:0.6, reverbDecay:0.8, reverbWet:0.10, volume:-6,
-    crackleEnabled:true, crackleInterval:0.09, crackleDensity:0.32,
-    crackleFreqMin:350, crackleFreqMax:2200, crackleDecay:0.06, crackleVolume:-8,
-  },
-  night: {
-    noiseType:'white', filterType:'bandpass', baseFreq:4500, filterQ:3.0,
-    lfoRate:0.06, lfoOctaves:0.4, reverbDecay:1.2, reverbWet:0.20, volume:-22,
-    crackleEnabled:true, crackleInterval:0.16, crackleDensity:0.28,
-    crackleFreqMin:4200, crackleFreqMax:8800, crackleDecay:0.05, crackleVolume:-15,
-  },
-  forest: {
-    noiseType:'white', filterType:'lowpass', baseFreq:2200, filterQ:0.5,
-    lfoRate:0.08, lfoOctaves:0.8, reverbDecay:2.0, reverbWet:0.26, volume:-14,
-    crackleEnabled:true, crackleInterval:0.14, crackleDensity:0.20,
-    crackleFreqMin:1500, crackleFreqMax:5500, crackleDecay:0.05, crackleVolume:-17,
-  },
-  none: {
-    noiseType:'white', filterType:'lowpass', baseFreq:80, filterQ:0.5,
-    lfoRate:0, lfoOctaves:0, reverbDecay:1.0, reverbWet:0.0, volume:-60,
-    crackleEnabled:false, crackleInterval:0.1, crackleDensity:0,
-    crackleFreqMin:0, crackleFreqMax:0, crackleDecay:0, crackleVolume:-60,
-  },
+const PROFILES: Record<NoiseSoundscape, SceneProfile> = {
+  rain:   { file: '/sounds/rain.mp3',   gain: 0.85, xfade: 1.5 },
+  storm:  { file: '/sounds/storm.mp3',  gain: 0.80, xfade: 3.0 },
+  ocean:  { file: '/sounds/ocean.mp3',  gain: 0.95, xfade: 3.0 },
+  river:  { file: '/sounds/river.mp3',  gain: 0.80, xfade: 2.5 },
+  fire:   { file: '/sounds/fire.mp3',   gain: 0.95, xfade: 2.0 },
+  forest: { file: '/sounds/forest.mp3', gain: 0.90, xfade: 2.0 },
+  pond:   { file: '/sounds/pond.mp3',   gain: 0.90, xfade: 2.5 },
+  night:  { file: '/sounds/night.mp3',  gain: 0.85, xfade: 1.2 },
+  none:   { file: '',                   gain: 0,    xfade: 0   },
 };
 
 // ─── Public library (for UI) ──────────────────────────────────────────────────
 
-export type NoiseCategory = 'rain' | 'water' | 'wind' | 'fire' | 'night' | 'forest';
-
 export const NOISE_CATEGORY_LABELS: Record<NoiseCategory, string> = {
   rain:   '🌧 Rain',
   water:  '🌊 Water',
-  wind:   '🌬 Wind',
   fire:   '🔥 Fire',
-  night:  '🌙 Night',
   forest: '🌲 Forest',
+  night:  '🌙 Night',
 };
 
 export const NOISE_LIBRARY: {
   id: NoiseSoundscape; label: string; emoji: string; category: NoiseCategory;
 }[] = [
-  { id: 'rain',       label: 'Gentle Rain',  emoji: '🌧',  category: 'rain'   },
-  { id: 'rain-heavy', label: 'Heavy Rain',   emoji: '🌨',  category: 'rain'   },
-  { id: 'storm',      label: 'Thunderstorm', emoji: '⛈',  category: 'rain'   },
-  { id: 'ocean',      label: 'Ocean Waves',  emoji: '🌊',  category: 'water'  },
-  { id: 'wind',       label: 'Wind',         emoji: '🌬',  category: 'wind'   },
-  { id: 'wind-howl',  label: 'Howling Wind', emoji: '💨',  category: 'wind'   },
-  { id: 'fire',       label: 'Fireplace',    emoji: '🔥',  category: 'fire'   },
-  { id: 'night',      label: 'Night Sounds', emoji: '🌙',  category: 'night'  },
-  { id: 'forest',     label: 'Forest',       emoji: '🌲',  category: 'forest' },
+  { id: 'rain',   label: 'Rain',         emoji: '🌧', category: 'rain'   },
+  { id: 'storm',  label: 'Thunderstorm', emoji: '⛈', category: 'rain'   },
+  { id: 'ocean',  label: 'Ocean Waves',  emoji: '🌊', category: 'water'  },
+  { id: 'river',  label: 'River',        emoji: '🏞', category: 'water'  },
+  { id: 'fire',   label: 'Campfire',     emoji: '🔥', category: 'fire'   },
+  { id: 'forest', label: 'Forest Birds', emoji: '🌲', category: 'forest' },
+  { id: 'pond',   label: 'Wetland Pond', emoji: '🐸', category: 'forest' },
+  { id: 'night',  label: 'Crickets',     emoji: '🦗', category: 'night'  },
 ];
 
 export const DEFAULT_NOISE: Record<MentalState, NoiseSoundscape> = {
@@ -160,178 +83,179 @@ export const DEFAULT_NOISE: Record<MentalState, NoiseSoundscape> = {
 
 export class NoiseEngine {
   private Tone: any = null;
-  private noise: any      = null;
-  private autoFilter: any = null;
-  private reverb: any     = null;
-  private masterVol: any  = null;
+  private ctx: AudioContext | null = null;
+  private masterGain: GainNode | null = null;
 
-  // Particle/crackle layer (rain patter, fire pops, cricket chirps)
-  private crackleSynth: any  = null;
-  private crackleFilter: any = null;
-  private crackleLoop: any   = null;
+  private buffers = new Map<string, AudioBuffer>();
+  private active: { src: AudioBufferSourceNode; g: GainNode }[] = [];
+  private loopTimer: ReturnType<typeof setTimeout> | null = null;
+  private token = 0;            // invalidates stale scheduling/loads
 
   private _isPlaying = false;
   private _initialized = false;
-  private _building = false;
-  private _volume = 0.5;
+  private _loading = false;
+  private _volume = 0.65;
   private _soundscape: NoiseSoundscape = 'rain';
 
   async init(): Promise<void> {
     if (this._initialized) return;
     this.Tone = await import('tone');
     await this.Tone.start();
+    this.ctx = this.Tone.getContext().rawContext as AudioContext;
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.value = 0;
+    this.masterGain.connect(this.ctx.destination);
     this._initialized = true;
   }
 
   async setSoundscape(id: NoiseSoundscape): Promise<void> {
     this._soundscape = id;
-    if (!this._initialized || this._building) return;
-    this._building = true;
-    const wasPlaying = this._isPlaying;
-    this._teardown();
-    try {
-      await this._build(id);
-      if (wasPlaying) this._startNoise();
-    } finally {
-      this._building = false;
-    }
+    if (!this._initialized) return;
+    const myToken = ++this.token;       // cancel any in-flight loop/load
+    this._stopActive(0.6);
+    if (this.loopTimer) { clearTimeout(this.loopTimer); this.loopTimer = null; }
+    if (id === 'none') return;
+
+    const buf = await this._load(id);
+    if (!buf || myToken !== this.token) return; // superseded
+    if (this._isPlaying) this._startLoop(buf, PROFILES[id], myToken);
   }
 
   play(): void {
     if (!this._initialized) return;
     this._isPlaying = true;
-    if (!this.noise) {
-      this._build(this._soundscape).then(() => this._startNoise());
-      return;
-    }
-    this._startNoise();
+    const id = this._soundscape;
+    if (id === 'none') return;
+    const myToken = ++this.token;
+    this._load(id).then((buf) => {
+      if (!buf || myToken !== this.token || !this._isPlaying) return;
+      this.masterGain!.gain.cancelScheduledValues(this.ctx!.currentTime);
+      this.masterGain!.gain.setValueAtTime(this.masterGain!.gain.value, this.ctx!.currentTime);
+      this.masterGain!.gain.linearRampToValueAtTime(this._target(), this.ctx!.currentTime + 1.5);
+      this._startLoop(buf, PROFILES[id], myToken);
+    });
   }
 
   pause(): void {
     if (!this._isPlaying) return;
     this._isPlaying = false;
-    this.masterVol?.volume.rampTo(-60, 1.5);
+    this._rampMaster(0, 1.2);
+    // Stop scheduling new instances; let the fade finish, then stop sources.
+    this.token++;
+    if (this.loopTimer) { clearTimeout(this.loopTimer); this.loopTimer = null; }
+    setTimeout(() => this._stopActive(0.05), 1300);
   }
 
   resume(): void {
     if (this._isPlaying || !this._initialized) return;
-    this._isPlaying = true;
-    this.masterVol?.volume.rampTo(this._dbAtVolume(), 1.5);
+    this.play();
   }
 
   setVolume(v: number): void {
     this._volume = Math.max(0, Math.min(1, v));
-    if (this._isPlaying && this.masterVol) {
-      this.masterVol.volume.rampTo(this._dbAtVolume(), 0.4);
-    }
+    if (this._isPlaying && this.masterGain) this._rampMaster(this._target(), 0.4);
   }
 
   dispose(): void {
     this._isPlaying = false;
-    this._teardown();
+    this.token++;
+    if (this.loopTimer) { clearTimeout(this.loopTimer); this.loopTimer = null; }
+    this._stopActive(0.05);
+    try { this.masterGain?.disconnect(); } catch { /* ignore */ }
+    this.masterGain = null;
+    this.buffers.clear();
   }
 
   get isPlaying() { return this._isPlaying; }
 
   // ── Private ─────────────────────────────────────────────────────────────────
 
-  private async _build(id: NoiseSoundscape): Promise<void> {
-    if (!this.Tone) return;
-    const T = this.Tone;
-    const p = PROFILES[id];
-
-    this.masterVol = new T.Volume(-60); // start silent, fade in on play
-    this.masterVol.toDestination();
-
-    this.reverb = new T.Reverb({ decay: p.reverbDecay, wet: p.reverbWet, preDelay: 0.01 });
-    await this.reverb.ready;
-    this.reverb.connect(this.masterVol);
-
-    // Steeper rolloff on lowpass scenes turns bright white noise into a soft
-    // low rumble (rain/ocean/fire); bandpass scenes keep a gentler slope.
-    const rolloff = (p.filterType === 'lowpass' ? -48 : -24) as -24 | -48;
-    this.autoFilter = new T.AutoFilter({
-      frequency: p.lfoRate > 0 ? p.lfoRate : 0.001,
-      baseFrequency: p.baseFreq,
-      octaves: p.lfoOctaves,
-      type: 'sine',
-      wet: p.lfoRate > 0 ? 1 : 0,
-      filter: { type: p.filterType, rolloff, Q: p.filterQ },
-    });
-    if (p.lfoRate > 0) this.autoFilter.start();
-    this.autoFilter.connect(this.reverb);
-
-    this.noise = new T.Noise(p.noiseType);
-    this.noise.connect(this.autoFilter);
-
-    // ── Particle/crackle layer ───────────────────────────────────────────────
-    // Short random noise bursts, bandpassed to a per-scene frequency band, fed
-    // DRY into masterVol so the transients stay crisp (no reverb wash). This is
-    // what makes rain sound like rain and fire sound like fire.
-    if (p.crackleEnabled) {
-      this.crackleFilter = new T.Filter({ type: 'bandpass', frequency: p.crackleFreqMin, Q: 1.2 });
-      this.crackleFilter.connect(this.masterVol);
-
-      this.crackleSynth = new T.NoiseSynth({
-        noise: { type: 'white' },
-        envelope: { attack: 0.001, decay: p.crackleDecay, sustain: 0, release: 0.02 },
-        volume: p.crackleVolume,
-      });
-      this.crackleSynth.connect(this.crackleFilter);
-
-      // Tone.Loop drives the bursts (sample-accurate, on the global Transport).
-      this.crackleLoop = new T.Loop((time: number) => {
-        if (!this._isPlaying) return;
-        if (Math.random() > p.crackleDensity) return; // probabilistic density
-        const f = p.crackleFreqMin + Math.random() * (p.crackleFreqMax - p.crackleFreqMin);
-        try {
-          this.crackleFilter.frequency.setValueAtTime(f, time);
-          this.crackleSynth.triggerAttackRelease(p.crackleDecay, time);
-        } catch { /* disposed */ }
-      }, p.crackleInterval);
-    }
+  private _target(): number {
+    if (this._volume <= 0) return 0;
+    return PROFILES[this._soundscape].gain * this._volume;
   }
 
-  private _startNoise(): void {
-    if (!this.noise) return;
-    const T = this.Tone;
-    try { this.noise.start(); } catch { /* already running */ }
-    // Crackle bursts need the Transport running; it's shared/global, so only
-    // start it if nothing else already did (e.g. the music engine).
-    if (this.crackleLoop) {
-      try {
-        if (T.getTransport().state !== 'started') T.getTransport().start();
-        this.crackleLoop.start();
-      } catch { /* ignore */ }
-    }
-    this.masterVol?.volume.rampTo(this._dbAtVolume(), 1.5);
+  private _rampMaster(to: number, sec: number): void {
+    if (!this.masterGain || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    this.masterGain.gain.cancelScheduledValues(now);
+    this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
+    this.masterGain.gain.linearRampToValueAtTime(to, now + sec);
   }
 
-  private _teardown(): void {
+  private async _load(id: NoiseSoundscape): Promise<AudioBuffer | null> {
+    const prof = PROFILES[id];
+    if (!prof.file || !this.ctx) return null;
+    const cached = this.buffers.get(prof.file);
+    if (cached) return cached;
+    if (this._loading) { /* allow concurrent; each awaits its own fetch */ }
     try {
-      this.crackleLoop?.stop();
-      this.crackleLoop?.dispose();
-      this.crackleSynth?.dispose();
-      this.crackleFilter?.dispose();
-      this.noise?.stop();
-      this.noise?.dispose();
-      this.autoFilter?.dispose();
-      this.reverb?.dispose();
-      this.masterVol?.dispose();
-    } catch { /* ignore */ }
-    this.crackleLoop = null;
-    this.crackleSynth = null;
-    this.crackleFilter = null;
-    this.noise = null;
-    this.autoFilter = null;
-    this.reverb = null;
-    this.masterVol = null;
+      this._loading = true;
+      const res = await fetch(prof.file);
+      const arr = await res.arrayBuffer();
+      const buf = await this.ctx.decodeAudioData(arr);
+      this.buffers.set(prof.file, buf);
+      return buf;
+    } catch {
+      return null;
+    } finally {
+      this._loading = false;
+    }
   }
 
-  private _dbAtVolume(): number {
-    if (this._volume <= 0) return -60;
-    const p = PROFILES[this._soundscape];
-    // Linear interpolation from -60dB (silence) to profile design volume
-    return -60 + this._volume * (p.volume + 60);
+  /** Seamless crossfade loop: overlap successive playbacks by `xfade` seconds. */
+  private _startLoop(buf: AudioBuffer, prof: SceneProfile, myToken: number): void {
+    if (!this.ctx || !this.masterGain) return;
+    const ctx = this.ctx;
+    const dur = buf.duration;
+    const x   = Math.min(prof.xfade, dur * 0.45);
+
+    const startOne = (at: number) => {
+      if (myToken !== this.token) return;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const g = ctx.createGain();
+      src.connect(g);
+      g.connect(this.masterGain!);
+
+      // Equal-time fade in at the head and fade out at the tail
+      g.gain.setValueAtTime(0, at);
+      g.gain.linearRampToValueAtTime(1, at + x);
+      g.gain.setValueAtTime(1, at + Math.max(x, dur - x));
+      g.gain.linearRampToValueAtTime(0, at + dur);
+
+      src.start(at);
+      src.stop(at + dur + 0.05);
+      const entry = { src, g };
+      this.active.push(entry);
+      src.onended = () => {
+        this.active = this.active.filter((e) => e !== entry);
+        try { src.disconnect(); g.disconnect(); } catch { /* ignore */ }
+      };
+
+      // Schedule the next overlapping instance a little before this one ends
+      const nextAt = at + dur - x;
+      const delayMs = Math.max(0, (nextAt - ctx.currentTime - 0.25) * 1000);
+      this.loopTimer = setTimeout(() => {
+        if (this._isPlaying && myToken === this.token) startOne(nextAt);
+      }, delayMs);
+    };
+
+    startOne(ctx.currentTime + 0.08);
+  }
+
+  private _stopActive(fade: number): void {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const dying = this.active;
+    this.active = [];
+    for (const { src, g } of dying) {
+      try {
+        g.gain.cancelScheduledValues(now);
+        g.gain.setValueAtTime(g.gain.value, now);
+        g.gain.linearRampToValueAtTime(0, now + fade);
+        src.stop(now + fade + 0.02);
+      } catch { /* already stopped */ }
+    }
   }
 }

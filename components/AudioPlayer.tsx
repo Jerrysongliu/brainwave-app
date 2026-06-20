@@ -275,7 +275,7 @@ export function AudioPlayer({ track, onPlayingChange, compact = false }: Props) 
         </div>
 
         <p className="text-[9px] text-white/18">
-          Synthesized in-browser · infinite, never loops · levels matched across scenes
+          Real field recordings · seamless crossfade loop · CC0/CC-licensed
         </p>
       </div>
 
