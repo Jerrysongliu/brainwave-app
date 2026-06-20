@@ -6,6 +6,8 @@ import type { GeneratedTrack } from '@/types';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import { NeuralOrb } from '@/components/NeuralOrb';
 import { SciencePanel } from '@/components/SciencePanel';
+import { SoundscapeBackground } from '@/components/SoundscapeBackground';
+import { type NoiseSoundscape } from '@/lib/noise-engine';
 import { MENTAL_STATE_META } from '@/lib/brainwave-science';
 
 const STATE_BG: Record<string, string> = {
@@ -52,6 +54,7 @@ export default function PlayerPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showMixer, setShowMixer] = useState(false);
+  const [currentSound, setCurrentSound] = useState<NoiseSoundscape>('rain');
   const elapsed = useTimer(isPlaying);
 
   useEffect(() => {
@@ -80,6 +83,13 @@ export default function PlayerPage() {
 
   return (
     <div className="relative min-h-screen flex flex-col items-center">
+      {/* Animated soundscape scene — matches the selected sound, tinted by mood */}
+      <SoundscapeBackground
+        soundscape={currentSound}
+        mentalState={track.mentalState}
+        active={isPlaying}
+      />
+
       {/* Per-state background aura */}
       <div className="pointer-events-none fixed inset-0">
         <div className={`absolute inset-0 bg-gradient-to-b ${STATE_BG[track.mentalState]}`} />
@@ -122,6 +132,7 @@ export default function PlayerPage() {
           <AudioPlayer
             track={track}
             onPlayingChange={setIsPlaying}
+            onSoundscapeChange={setCurrentSound}
             compact={!showMixer}
           />
 

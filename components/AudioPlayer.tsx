@@ -19,12 +19,13 @@ import { cn } from '@/lib/utils';
 interface Props {
   track: GeneratedTrack;
   onPlayingChange?: (playing: boolean) => void;
+  onSoundscapeChange?: (id: NoiseSoundscape) => void;
   compact?: boolean; // hides mixer + soundscape, shows only play button
 }
 
 const NOISE_CATEGORIES = Object.keys(NOISE_CATEGORY_LABELS) as NoiseCategory[];
 
-export function AudioPlayer({ track, onPlayingChange, compact = false }: Props) {
+export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compact = false }: Props) {
   const binauralRef = useRef<BrainWaveEngine | null>(null);
   const musicRef    = useRef<AmbientMusicEngine | null>(null);
   const noiseRef    = useRef<NoiseEngine | null>(null);
@@ -50,6 +51,7 @@ export function AudioPlayer({ track, onPlayingChange, compact = false }: Props) 
 
   useEffect(() => {
     setActiveCategory(selectedItem.category);
+    onSoundscapeChange?.(selectedId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -118,6 +120,7 @@ export function AudioPlayer({ track, onPlayingChange, compact = false }: Props) 
 
   const handleSelectSound = async (id: NoiseSoundscape) => {
     setSelectedId(id);
+    onSoundscapeChange?.(id);
     if (ready) await noiseRef.current?.setSoundscape(id);
   };
 
