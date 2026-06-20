@@ -1,12 +1,17 @@
 'use client';
 
 /**
- * SoundscapeBackground — full-screen animated Canvas behind the player.
+ * SoundscapeBackground — a full-screen, dreamy animated Canvas behind the player.
  *
- * The visual matches the SELECTED soundscape (rain streaks, fire embers, ocean
- * waves, drifting forest motes, night stars …) and is color-tinted by the
- * MENTAL STATE (a soft mood wash). Drawn additively ('lighter') so it glows on
- * dark and stays subtle on light — no theme takeover. Respects reduced motion.
+ * Two layers, drawn additively ('lighter') for an ethereal glow that reads on
+ * both light and dark themes:
+ *   1. AURORA — a few huge, slowly-drifting soft radial gradients (nebula wash)
+ *      colored by the scene + mood, gently "breathing" over ~30s.
+ *   2. PARTICLES — the scene's signature motion (rain, waves, embers, motes,
+ *      stars) rendered with bloom (shadowBlur) and slow, graceful movement.
+ *
+ * Matches the SELECTED soundscape, tinted by the MENTAL STATE. Eases down when
+ * paused; respects prefers-reduced-motion; mobile-tuned (DPR capped, modest counts).
  */
 
 import { useEffect, useRef } from 'react';
@@ -15,32 +20,32 @@ import type { NoiseSoundscape } from '@/lib/noise-engine';
 
 type VisualType = 'rain' | 'waves' | 'fire' | 'motes' | 'stars';
 
-const SCENE: Record<NoiseSoundscape, { type: VisualType; color: string; storm?: boolean; big?: boolean; fast?: boolean }> = {
-  rain:   { type: 'rain',  color: '#9fb8d8' },
-  storm:  { type: 'rain',  color: '#b4c0d2', storm: true },
-  ocean:  { type: 'waves', color: '#4f9fc4', big: true },
-  river:  { type: 'waves', color: '#79c6d6', fast: true },
-  fire:   { type: 'fire',  color: '#ff8a3c' },
-  forest: { type: 'motes', color: '#a9d488' },
-  pond:   { type: 'motes', color: '#8fcab0' },
-  night:  { type: 'stars', color: '#cdd6ff' },
-  none:   { type: 'motes', color: '#8899aa' },
+const SCENE: Record<NoiseSoundscape, { type: VisualType; color: string; color2: string; storm?: boolean; big?: boolean; fast?: boolean }> = {
+  rain:   { type: 'rain',  color: '#a8c4e8', color2: '#6d8fc4' },
+  storm:  { type: 'rain',  color: '#c2cde0', color2: '#7e6fae', storm: true },
+  ocean:  { type: 'waves', color: '#54b0d6', color2: '#2f7aa8', big: true },
+  river:  { type: 'waves', color: '#86d6e0', color2: '#4fb0c4', fast: true },
+  fire:   { type: 'fire',  color: '#ff9a4c', color2: '#ff5a3c' },
+  forest: { type: 'motes', color: '#b6e08a', color2: '#6fc48f' },
+  pond:   { type: 'motes', color: '#9adcc0', color2: '#62b6c4' },
+  night:  { type: 'stars', color: '#d6dcff', color2: '#8a7cc8' },
+  none:   { type: 'motes', color: '#9aaabe', color2: '#7a8aa6' },
 };
 
 const MOOD_TINT: Record<MentalState, string> = {
-  focus:            '#6366f1',
-  learning:         '#8b5cf6',
-  relaxation:       '#10b981',
-  sleep:            '#1e3a8a',
-  'mood-boost':     '#f59e0b',
-  meditation:       '#ec4899',
-  'anxiety-relief': '#06b6d4',
+  focus:            '#6c6cf2',
+  learning:         '#9b6cf2',
+  relaxation:       '#22c08a',
+  sleep:            '#2a4ed0',
+  'mood-boost':     '#ffb43c',
+  meditation:       '#f062c0',
+  'anxiety-relief': '#22b6e0',
 };
 
 interface Props {
   soundscape: NoiseSoundscape;
   mentalState: MentalState;
-  active: boolean; // playing → full motion; paused → calmer
+  active: boolean;
 }
 
 interface P { x: number; y: number; v: number; s: number; a: number; t: number; }
@@ -53,7 +58,6 @@ function hexRgb(hex: string): [number, number, number] {
 export function SoundscapeBackground({ soundscape, mentalState, active }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
-  // Refs so the animation loop always reads current props without re-subscribing
   const sceneRef = useRef(soundscape);
   const moodRef = useRef(mentalState);
   const activeRef = useRef(active);
@@ -69,6 +73,17 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
 
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     let W = 0, H = 0, dpr = 1;
+
+    // Aurora blobs — large soft drifting nebula clouds
+    const blobs = Array.from({ length: 4 }, (_, i) => ({
+      bx: 0.2 + 0.6 * Math.random(),
+      by: 0.15 + 0.7 * Math.random(),
+      rad: 0.5 + 0.35 * Math.random(),
+      sp: 0.00004 + Math.random() * 0.00006,
+      ph: Math.random() * 6.28,
+      ph2: Math.random() * 6.28,
+      which: i, // 0 scene, 1 mood, 2 scene2, 3 mood-light
+    }));
 
     const resize = () => {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -89,105 +104,125 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
       const area = W * H;
       const mk = (n: number, fn: () => P) => { for (let i = 0; i < n; i++) parts.push(fn()); };
       if (curType === 'rain') {
-        mk(Math.min(storm ? 240 : 150, Math.round(area / 7000)), () => ({
+        mk(Math.min(storm ? 220 : 140, Math.round(area / 7500)), () => ({
           x: Math.random() * W, y: Math.random() * H,
-          v: (storm ? 14 : 9) + Math.random() * 7, s: 8 + Math.random() * 14,
-          a: 0.12 + Math.random() * 0.22, t: 0,
+          v: (storm ? 11 : 7) + Math.random() * 6, s: 9 + Math.random() * 16,
+          a: 0.10 + Math.random() * 0.20, t: 0,
         }));
       } else if (curType === 'fire') {
-        mk(70, () => ({ x: W / 2 + (Math.random() - 0.5) * W * 0.5, y: H + Math.random() * 60,
-          v: 0.6 + Math.random() * 1.6, s: 1 + Math.random() * 2.6, a: 0.4 + Math.random() * 0.5, t: Math.random() * 6 }));
+        mk(64, () => ({ x: W / 2 + (Math.random() - 0.5) * W * 0.5, y: H + Math.random() * 60,
+          v: 0.5 + Math.random() * 1.3, s: 1.4 + Math.random() * 3, a: 0.4 + Math.random() * 0.5, t: Math.random() * 6 }));
       } else if (curType === 'motes') {
-        mk(Math.min(70, Math.round(area / 24000)), () => ({ x: Math.random() * W, y: Math.random() * H,
-          v: 0.15 + Math.random() * 0.4, s: 1 + Math.random() * 2.4, a: 0.15 + Math.random() * 0.4, t: Math.random() * 6 }));
+        mk(Math.min(64, Math.round(area / 26000)), () => ({ x: Math.random() * W, y: Math.random() * H,
+          v: 0.12 + Math.random() * 0.35, s: 1.4 + Math.random() * 3, a: 0.2 + Math.random() * 0.4, t: Math.random() * 6 }));
       } else if (curType === 'stars') {
-        mk(Math.min(120, Math.round(area / 12000)), () => ({ x: Math.random() * W, y: Math.random() * H * 0.92,
-          v: 0.02 + Math.random() * 0.06, s: 0.6 + Math.random() * 1.8, a: 0.2 + Math.random() * 0.6, t: Math.random() * 6.28 }));
-      } else { // waves — a few horizontal bands
+        mk(Math.min(130, Math.round(area / 11000)), () => ({ x: Math.random() * W, y: Math.random() * H * 0.95,
+          v: 0.015 + Math.random() * 0.05, s: 0.7 + Math.random() * 2, a: 0.25 + Math.random() * 0.6, t: Math.random() * 6.28 }));
+      } else { // waves
         const bands = SCENE[sceneRef.current].big ? 6 : 8;
-        for (let i = 0; i < bands; i++) parts.push({ x: 0, y: H * (0.45 + 0.55 * (i / bands)), v: 0, s: i, a: 0.05 + 0.05 * (i / bands), t: Math.random() * 6.28 });
+        for (let i = 0; i < bands; i++) parts.push({ x: 0, y: H * (0.42 + 0.58 * (i / bands)), v: 0, s: i, a: 0.05 + 0.06 * (i / bands), t: Math.random() * 6.28 });
       }
     };
 
     let last = performance.now();
-    let flash = 0; // lightning
+    let flash = 0;
+
+    const blobColor = (which: number, scene: typeof SCENE[NoiseSoundscape], mood: string): [number, number, number] => {
+      if (which === 0) return hexRgb(scene.color);
+      if (which === 2) return hexRgb(scene.color2);
+      return hexRgb(mood);
+    };
 
     const frame = (now: number) => {
       const dt = Math.min(2.5, (now - last) / 16.67); last = now;
       const scene = SCENE[sceneRef.current];
       if (scene.type !== curType) build();
       const [r, g, b] = hexRgb(scene.color);
-      const motion = activeRef.current ? 1 : 0.35;
-      const baseA = activeRef.current ? 1 : 0.5;
+      const mood = MOOD_TINT[moodRef.current] ?? '#6c6cf2';
+      const motion = activeRef.current ? 1 : 0.4;
+      const breathe = 0.82 + 0.18 * Math.sin(now * 0.00026);
+      const baseA = (activeRef.current ? 1 : 0.55) * breathe;
 
       ctx.clearRect(0, 0, W, H);
-
-      // Mood tint wash (top-down radial) — works under any theme
-      const [mr, mg, mb] = hexRgb(MOOD_TINT[moodRef.current] ?? '#6366f1');
-      const grad = ctx.createRadialGradient(W / 2, -H * 0.2, 0, W / 2, -H * 0.2, H * 1.3);
-      grad.addColorStop(0, `rgba(${mr},${mg},${mb},${0.16 * baseA})`);
-      grad.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, W, H);
-
       ctx.globalCompositeOperation = 'lighter';
 
+      // ── Aurora nebula wash ───────────────────────────────────────────────
+      for (const bl of blobs) {
+        const cx = (bl.bx + 0.10 * Math.sin(now * bl.sp + bl.ph)) * W;
+        const cy = (bl.by + 0.10 * Math.cos(now * bl.sp * 1.3 + bl.ph2)) * H;
+        const rad = bl.rad * Math.max(W, H) * (0.9 + 0.1 * Math.sin(now * bl.sp * 2 + bl.ph));
+        const [cr, cg, cb] = blobColor(bl.which, scene, mood);
+        const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+        grd.addColorStop(0, `rgba(${cr},${cg},${cb},${0.10 * baseA})`);
+        grd.addColorStop(0.5, `rgba(${cr},${cg},${cb},${0.04 * baseA})`);
+        grd.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // ── Particles (with bloom) ───────────────────────────────────────────
       if (curType === 'rain') {
         if (scene.storm && Math.random() < 0.004) flash = 1;
         if (flash > 0) {
-          ctx.fillStyle = `rgba(200,210,255,${0.18 * flash})`;
+          ctx.fillStyle = `rgba(200,210,255,${0.16 * flash})`;
           ctx.fillRect(0, 0, W, H);
-          flash = Math.max(0, flash - 0.06 * dt);
+          flash = Math.max(0, flash - 0.05 * dt);
         }
         ctx.strokeStyle = `rgba(${r},${g},${b},1)`;
-        ctx.lineWidth = 1.1;
+        ctx.lineWidth = 1.3;
         for (const p of parts) {
           ctx.globalAlpha = p.a * baseA;
           ctx.beginPath();
           ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x - 1.5, p.y + p.s);
+          ctx.lineTo(p.x - 1.2, p.y + p.s);
           ctx.stroke();
-          p.y += p.v * motion * dt * 2;
-          p.x -= 0.4 * motion * dt;
+          p.y += p.v * motion * dt * 1.7;
+          p.x -= 0.35 * motion * dt;
           if (p.y > H) { p.y = -p.s; p.x = Math.random() * W; }
         }
       } else if (curType === 'fire') {
-        // warm glow at the base
-        const fg = ctx.createRadialGradient(W / 2, H, 0, W / 2, H, H * 0.55);
-        fg.addColorStop(0, `rgba(${r},${g},${b},${0.12 * baseA * (0.8 + Math.random() * 0.2)})`);
+        const fg = ctx.createRadialGradient(W / 2, H, 0, W / 2, H, H * 0.6);
+        fg.addColorStop(0, `rgba(${r},${g},${b},${0.14 * baseA * (0.85 + Math.random() * 0.15)})`);
         fg.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = fg; ctx.fillRect(0, 0, W, H);
+        ctx.shadowColor = `rgb(${r},${g},${b})`; ctx.shadowBlur = 12;
         for (const p of parts) {
           p.t += 0.05 * dt;
           ctx.globalAlpha = p.a * baseA * (0.6 + 0.4 * Math.sin(p.t));
           ctx.fillStyle = `rgba(${r},${g},${b},1)`;
           ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 6.28); ctx.fill();
-          p.y -= p.v * motion * dt * 1.5;
-          p.x += Math.sin(p.t) * 0.6 * motion;
-          if (p.y < H * 0.35 || p.a <= 0) { p.y = H + Math.random() * 30; p.x = W / 2 + (Math.random() - 0.5) * W * 0.5; }
+          p.y -= p.v * motion * dt * 1.4;
+          p.x += Math.sin(p.t) * 0.5 * motion;
+          if (p.y < H * 0.32 || p.a <= 0) { p.y = H + Math.random() * 30; p.x = W / 2 + (Math.random() - 0.5) * W * 0.5; }
         }
+        ctx.shadowBlur = 0;
       } else if (curType === 'motes') {
+        ctx.shadowColor = `rgb(${r},${g},${b})`; ctx.shadowBlur = 10;
         for (const p of parts) {
-          p.t += 0.02 * dt;
-          ctx.globalAlpha = p.a * baseA * (0.5 + 0.5 * Math.sin(p.t));
+          p.t += 0.018 * dt;
+          ctx.globalAlpha = p.a * baseA * (0.45 + 0.55 * Math.sin(p.t));
           ctx.fillStyle = `rgba(${r},${g},${b},1)`;
           ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 6.28); ctx.fill();
-          p.x += Math.sin(p.t) * 0.5 * motion * dt;
+          p.x += Math.sin(p.t) * 0.4 * motion * dt;
           p.y += p.v * motion * dt;
           if (p.y > H) { p.y = -4; p.x = Math.random() * W; }
         }
+        ctx.shadowBlur = 0;
       } else if (curType === 'stars') {
+        ctx.shadowColor = `rgb(${r},${g},${b})`; ctx.shadowBlur = 8;
         for (const p of parts) {
-          p.t += (0.4 + p.v) * dt;
+          p.t += (0.35 + p.v) * dt;
           ctx.globalAlpha = p.a * baseA * (0.4 + 0.6 * (0.5 + 0.5 * Math.sin(p.t)));
           ctx.fillStyle = `rgba(${r},${g},${b},1)`;
           ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 6.28); ctx.fill();
-          p.x += p.v * motion * dt;
+          p.x += p.v * motion * dt * 0.6;
           if (p.x > W) p.x = 0;
         }
+        ctx.shadowBlur = 0;
       } else { // waves
+        ctx.shadowColor = `rgb(${r},${g},${b})`; ctx.shadowBlur = 6;
         for (const p of parts) {
-          p.t += (scene.fast ? 0.03 : 0.014) * dt * motion;
+          p.t += (scene.fast ? 0.026 : 0.012) * dt * motion;
           const amp = (scene.big ? 26 : 14) + p.s * 3;
           ctx.globalAlpha = p.a * baseA;
           ctx.strokeStyle = `rgba(${r},${g},${b},1)`;
@@ -199,6 +234,7 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
           }
           ctx.stroke();
         }
+        ctx.shadowBlur = 0;
       }
 
       ctx.globalAlpha = 1;
@@ -208,13 +244,7 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
 
     resize();
     window.addEventListener('resize', resize);
-
-    if (reduce) {
-      // Static single paint
-      ctx.clearRect(0, 0, W, H);
-    } else {
-      rafRef.current = requestAnimationFrame(frame);
-    }
+    if (!reduce) rafRef.current = requestAnimationFrame(frame);
 
     return () => {
       cancelAnimationFrame(rafRef.current);
@@ -227,7 +257,7 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
       ref={canvasRef}
       aria-hidden
       className="pointer-events-none fixed inset-0 -z-10"
-      style={{ opacity: 0.9 }}
+      style={{ opacity: 0.95 }}
     />
   );
 }
