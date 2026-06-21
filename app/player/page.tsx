@@ -118,7 +118,7 @@ export default function PlayerPage() {
             <h1 className="text-3xl font-bold text-white">{track.title}</h1>
             <p className="text-[15px] text-white/55">{track.duration} min · {track.intensity}</p>
             <div className="pt-1.5">
-              <span className="font-mono text-3xl font-light text-white/80 tabular-nums tracking-wider">
+              <span className="font-mono text-3xl font-light accent-text tabular-nums tracking-wider">
                 {elapsed}
               </span>
             </div>

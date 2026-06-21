@@ -192,7 +192,7 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
       <div className="flex items-center gap-4">
         <button
           onClick={handleToggle}
-          className="w-16 h-16 flex-shrink-0 rounded-full bg-white/12 hover:bg-white/20 active:scale-95 flex items-center justify-center text-2xl transition-all border border-white/15 shadow-sm"
+          className="ring-accent w-16 h-16 flex-shrink-0 rounded-full bg-white/12 hover:bg-white/20 active:scale-95 flex items-center justify-center text-2xl transition-all border border-white/15"
           aria-label={isPlaying ? 'Pause' : 'Play'}
         >
           {isPlaying ? '⏸' : '▶'}
@@ -276,7 +276,7 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
               className={cn(
                 'text-sm px-3.5 py-1.5 rounded-xl border transition-all active:scale-95',
                 activeCategory === cat
-                  ? 'bg-white/12 border-white/25 text-white'
+                  ? 'chip-on'
                   : 'bg-transparent border-white/10 text-white/55 hover:text-white/80 hover:border-white/20'
               )}
             >
@@ -294,7 +294,7 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
               className={cn(
                 'flex items-center gap-2 text-sm px-4 py-2.5 rounded-2xl border transition-all active:scale-95',
                 selectedId === sound.id
-                  ? 'bg-white/15 border-white/30 text-white shadow-sm'
+                  ? 'chip-on'
                   : 'bg-white/5 border-white/10 hover:bg-white/10 text-white/60'
               )}
             >

@@ -34,6 +34,86 @@
   --shadow:      0 1px 2px rgba(0,0,0,0.5), 0 12px 38px rgba(0,0,0,0.5);
 }
 
+/* ── Accent themes (independent of light/dark) ───────────────────── */
+/* Default = Aurora Flow. ThemeSwitcher sets html[data-theme]. */
+:root,
+[data-theme='aurora'] {
+  --accent:        #8b5cf6;
+  --accent-2:      #2dd4bf;
+  --accent-3:      #34d399;
+  --accent-grad:   linear-gradient(120deg, #8b5cf6, #6366f1 38%, #2dd4bf 78%, #34d399);
+  --accent-glow:   rgba(139, 92, 246, 0.35);
+  --accent-soft:   rgba(139, 92, 246, 0.16);
+  --accent-border: rgba(139, 92, 246, 0.55);
+  --on-accent:     #ffffff;
+}
+[data-theme='holographic'] {
+  --accent:        #22d3ee;
+  --accent-2:      #3b82f6;
+  --accent-3:      #818cf8;
+  --accent-grad:   linear-gradient(120deg, #22d3ee, #38bdf8 50%, #6366f1);
+  --accent-glow:   rgba(34, 211, 238, 0.38);
+  --accent-soft:   rgba(34, 211, 238, 0.15);
+  --accent-border: rgba(34, 211, 238, 0.55);
+  --on-accent:     #04141a;
+}
+[data-theme='nebula'] {
+  --accent:        #c026d3;
+  --accent-2:      #ec4899;
+  --accent-3:      #fb923c;
+  --accent-grad:   linear-gradient(120deg, #6366f1, #a855f7 34%, #ec4899 68%, #fb923c);
+  --accent-glow:   rgba(192, 38, 211, 0.36);
+  --accent-soft:   rgba(192, 38, 211, 0.16);
+  --accent-border: rgba(217, 70, 239, 0.55);
+  --on-accent:     #ffffff;
+}
+[data-theme='iridescence'] {
+  --accent:        #b9a8ff;
+  --accent-2:      #9af3d0;
+  --accent-3:      #fbcfe8;
+  --accent-grad:   linear-gradient(120deg, #a5f3fc, #c4b5fd 34%, #fbcfe8 66%, #bbf7d0);
+  --accent-glow:   rgba(196, 181, 253, 0.32);
+  --accent-soft:   rgba(196, 181, 253, 0.15);
+  --accent-border: rgba(196, 181, 253, 0.6);
+  --on-accent:     #1a1730;
+}
+
+/* Accent utilities */
+.accent-text {
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.btn-accent {
+  background: var(--accent-grad);
+  color: var(--on-accent);
+  border: none;
+  box-shadow: 0 8px 30px var(--accent-glow);
+  transition: filter 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+.btn-accent:hover:not(:disabled) { filter: brightness(1.07) saturate(1.05); box-shadow: 0 10px 38px var(--accent-glow); }
+.btn-accent:active:not(:disabled) { transform: scale(0.985); }
+/* Selected chip / active state in the current accent */
+.chip-on {
+  background: var(--accent-soft) !important;
+  border-color: var(--accent-border) !important;
+  color: var(--text) !important;
+  box-shadow: 0 0 0 1px var(--accent-border), 0 6px 22px var(--accent-glow);
+}
+.ring-accent { box-shadow: 0 0 0 1px var(--accent-border), 0 0 34px var(--accent-glow); }
+.accent-dot { background: var(--accent); }
+
+/* Iridescence: a living, slowly-shifting prism sheen */
+@keyframes irid-shimmer {
+  from { filter: hue-rotate(-18deg) saturate(1); }
+  to   { filter: hue-rotate(28deg) saturate(1.18); }
+}
+[data-theme='iridescence'] .btn-accent,
+[data-theme='iridescence'] .accent-text {
+  animation: irid-shimmer 9s ease-in-out infinite alternate;
+}
+
 * { box-sizing: border-box; }
 
 body {

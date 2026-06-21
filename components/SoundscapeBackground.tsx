@@ -74,6 +74,16 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     let W = 0, H = 0, dpr = 1;
 
+    // Pick up the active theme accent so the aurora carries the theme color.
+    const themeAccent = { current: '#8b5cf6' };
+    const readAccent = () => {
+      const v = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      if (/^#([0-9a-fA-F]{6})$/.test(v)) themeAccent.current = v;
+    };
+    readAccent();
+    const mo = new MutationObserver(readAccent);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+
     // Aurora blobs — large soft drifting nebula clouds
     const blobs = Array.from({ length: 4 }, (_, i) => ({
       bx: 0.2 + 0.6 * Math.random(),
@@ -130,6 +140,7 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
     const blobColor = (which: number, scene: typeof SCENE[NoiseSoundscape], mood: string): [number, number, number] => {
       if (which === 0) return hexRgb(scene.color);
       if (which === 2) return hexRgb(scene.color2);
+      if (which === 3) return hexRgb(themeAccent.current); // theme accent blends in
       return hexRgb(mood);
     };
 
@@ -249,6 +260,7 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
     return () => {
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener('resize', resize);
+      mo.disconnect();
     };
   }, []);
 

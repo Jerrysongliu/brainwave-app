@@ -73,9 +73,9 @@ export default function Home() {
     <div className="relative min-h-screen">
       {/* Background aura orbs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="orb-1 absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-violet-600/10 blur-[120px]" />
-        <div className="orb-2 absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-cyan-500/8 blur-[100px]" />
-        <div className="absolute top-[40%] left-[50%] w-[300px] h-[300px] rounded-full bg-indigo-500/6 blur-[80px]" />
+        <div className="orb-1 absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full blur-[120px]" style={{ background: 'var(--accent)', opacity: 0.12 }} />
+        <div className="orb-2 absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full blur-[100px]" style={{ background: 'var(--accent-2)', opacity: 0.10 }} />
+        <div className="absolute top-[40%] left-[50%] w-[300px] h-[300px] rounded-full blur-[80px]" style={{ background: 'var(--accent-3)', opacity: 0.08 }} />
       </div>
 
       <div className="relative max-w-3xl mx-auto px-5 py-12 space-y-14">
@@ -89,7 +89,7 @@ export default function Home() {
           <h1 className="text-5xl sm:text-6xl font-bold tracking-tight leading-tight">
             What does your
             <br />
-            <span className="bg-gradient-to-r from-violet-400 via-fuchsia-300 to-cyan-400 bg-clip-text text-transparent">
+            <span className="accent-text">
               mind need?
             </span>
           </h1>
@@ -112,7 +112,7 @@ export default function Home() {
             <button
               onClick={handleSmartRecommend}
               disabled={loadingRec || !smartInput.trim()}
-              className="m-1 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-500 hover:to-violet-400 text-sm font-medium disabled:opacity-30 transition-all whitespace-nowrap"
+              className="btn-accent m-1 px-5 py-2.5 rounded-xl text-sm font-medium disabled:opacity-30 whitespace-nowrap"
             >
               {loadingRec ? (
                 <span className="flex items-center gap-1.5">
@@ -142,7 +142,7 @@ export default function Home() {
                   className={cn(
                     'px-4 py-2 rounded-xl text-sm font-medium border transition-all',
                     duration === value
-                      ? 'bg-white text-black border-transparent'
+                      ? 'chip-on'
                       : 'glass text-white/60 hover:text-white hover:border-white/20'
                   )}
                 >
@@ -162,7 +162,7 @@ export default function Home() {
                   className={cn(
                     'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all',
                     intensity === value
-                      ? 'bg-white text-black border-transparent'
+                      ? 'chip-on'
                       : 'glass text-white/60 hover:text-white hover:border-white/20'
                   )}
                 >
@@ -187,7 +187,7 @@ export default function Home() {
           className={cn(
             'w-full py-5 rounded-2xl font-semibold text-base tracking-wide transition-all duration-300 fade-up',
             mentalState && !generating
-              ? 'bg-gradient-to-r from-violet-600 via-fuchsia-600 to-cyan-600 hover:opacity-90 text-white shadow-2xl shadow-violet-600/25 hover:shadow-violet-600/40 hover:scale-[1.01] active:scale-[0.99]'
+              ? 'btn-accent hover:scale-[1.01]'
               : 'bg-white/5 text-white/20 cursor-not-allowed border border-white/5'
           )}
         >
