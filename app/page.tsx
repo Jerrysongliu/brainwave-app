@@ -19,6 +19,9 @@ const INTENSITIES: { value: Intensity; label: string; desc: string; icon: string
   { value: 'deep',     label: 'Deep',     desc: 'Full immersion',        icon: '●' },
 ];
 
+// Web build → '' (same-origin /api). Mobile static build → hosted Vercel API.
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
+
 export default function Home() {
   const router = useRouter();
   const [mentalState, setMentalState] = useState<MentalState | null>(null);
@@ -34,7 +37,7 @@ export default function Home() {
     setLoadingRec(true);
     setError('');
     try {
-      const res = await fetch('/api/recommend', {
+      const res = await fetch(`${API_BASE}/api/recommend`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: smartInput }),
@@ -53,7 +56,7 @@ export default function Home() {
     setGenerating(true);
     setError('');
     try {
-      const res = await fetch('/api/generate', {
+      const res = await fetch(`${API_BASE}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mentalState, duration, intensity }),

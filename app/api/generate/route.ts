@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildSessionContent } from '@/lib/claude';
 import { FREQUENCY_PROFILES } from '@/lib/brainwave-science';
+import { CORS, preflight } from '@/lib/cors';
 import type { GenerateRequest, GeneratedTrack } from '@/types';
+
+export function OPTIONS() { return preflight(); }
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,7 +12,7 @@ export async function POST(req: NextRequest) {
     const { mentalState, duration, intensity } = body;
 
     if (!mentalState || !duration || !intensity) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400, headers: CORS });
     }
 
     // Claude generates the title and science explainer only (no music API needed)
@@ -31,9 +34,9 @@ export async function POST(req: NextRequest) {
       createdAt: new Date().toISOString(),
     };
 
-    return NextResponse.json(track);
+    return NextResponse.json(track, { headers: CORS });
   } catch (err) {
     console.error('[/api/generate]', err);
-    return NextResponse.json({ error: 'Generation failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Generation failed' }, { status: 500, headers: CORS });
   }
 }
