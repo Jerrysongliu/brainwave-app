@@ -10,7 +10,9 @@
     "build:mobile": "node scripts/mobile-build.mjs",
     "ios:sync": "cap sync ios",
     "ios:open": "cap open ios",
-    "ios:configure": "node scripts/ios-configure.mjs"
+    "ios:configure": "node scripts/ios-configure.mjs",
+    "icons": "node scripts/gen-icons.mjs",
+    "ios:icons": "capacitor-assets generate --ios"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
@@ -29,6 +31,7 @@
     "tone": "^15.1.22"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.4.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
@@ -36,6 +39,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "sharp": "^0.35.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

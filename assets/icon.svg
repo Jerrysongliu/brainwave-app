@@ -1,0 +1,45 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b2bb0"/>
+      <stop offset="0.45" stop-color="#7c3aed"/>
+      <stop offset="0.78" stop-color="#5b54e6"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.32" cy="0.26" r="0.9">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="0.4" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nebula" cx="0.78" cy="0.82" r="0.7">
+      <stop offset="0" stop-color="#ec4899" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#ec4899" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+
+  <!-- background -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#nebula)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+
+  <!-- brainwave line -->
+  <path d="M150 560 q70 -150 150 0 t150 0 t150 0 t150 0 t150 0"
+        fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- psi glow -->
+  <g filter="url(#soft)" opacity="0.6">
+    <path d="M512 214 V812" fill="none" stroke="#ffffff" stroke-width="52" stroke-linecap="round"/>
+    <path d="M360 300 V512 C360 612 430 648 512 648" fill="none" stroke="#ffffff" stroke-width="52" stroke-linecap="round"/>
+    <path d="M664 300 V512 C664 612 594 648 512 648" fill="none" stroke="#ffffff" stroke-width="52" stroke-linecap="round"/>
+  </g>
+
+  <!-- psi mark -->
+  <g fill="none" stroke="#ffffff" stroke-width="50" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M512 214 V812"/>
+    <path d="M360 300 V512 C360 612 430 648 512 648"/>
+    <path d="M664 300 V512 C664 612 594 648 512 648"/>
+  </g>
+</svg>
