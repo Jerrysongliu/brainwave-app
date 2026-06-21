@@ -1,12 +1,16 @@
 /**
- * RealMusicEngine — plays bundled real recordings (Classical / Lo-fi / Piano)
- * as a shuffled, auto-advancing playlist.
+ * RealMusicEngine — plays bundled real recordings (Ambient / Classical / Lo-fi /
+ * Piano) as a shuffled, auto-advancing, gapless playlist.
+ *
+ * Uses the WEB AUDIO API on Tone's shared AudioContext (same approach as the
+ * soundscape engine). This is critical: on iOS, an HTMLAudioElement cannot be
+ * re-`play()`ed programmatically when a track ends (no user gesture), so the
+ * playlist would stall after one track. Web Audio buffer sources, once the
+ * context is unlocked by the initial tap, schedule freely — so tracks advance
+ * for the full session. Tracks are lazy-fetched and the next one is prefetched.
  *
  * Drop-in for AmbientMusicEngine's player surface (init/play/pause/resume/
- * setVolume/fadeOut/dispose/isPlaying) so AudioPlayer can swap between the two
- * by style. Uses ONE HTMLAudioElement (not a Web Audio graph) for maximum
- * mobile/iOS reliability and so only the current track is fetched (lazy-load).
- * Tracks fade in on start and advance to the next one when they end.
+ * setVolume/fadeOut/next/dispose/isPlaying/currentTitle/onTrackChange).
  */
 
 import type { MentalState } from '@/types';
@@ -23,82 +27,94 @@ function shuffle<T>(a: T[]): T[] {
 }
 
 export class RealMusicEngine {
-  private el: HTMLAudioElement | null = null;
+  private Tone: any = null;
+  private ctx: AudioContext | null = null;
+  private master: GainNode | null = null;
+  private src: AudioBufferSourceNode | null = null;
+  private srcGain: GainNode | null = null;
+
+  private buffers = new Map<string, AudioBuffer>();
   private playlist: MusicTrack[] = [];
   private idx = 0;
+  private token = 0;          // invalidates superseded sources/loads
+  private startAt = 0;        // ctx time the current track started
+  private offset = 0;         // resume offset into the current track
   private _vol = 0.7;
   private _isPlaying = false;
-  private rampId: ReturnType<typeof setInterval> | null = null;
+  private _started = false;
 
   /** Set by AudioPlayer to show the now-playing title. */
   onTrackChange: ((title: string) => void) | null = null;
 
-  // styleId selects the genre playlist; mentalState is unused (kept for parity)
   async init(_mentalState: MentalState, styleId?: StyleId): Promise<void> {
-    const tracks = (styleId && MUSIC_TRACKS[styleId]) || [];
-    this.playlist = shuffle(tracks);
+    this.Tone = await import('tone');
+    await this.Tone.start();
+    this.ctx = this.Tone.getContext().rawContext as AudioContext;
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0;
+    this.master.connect(this.ctx.destination);
+    this.playlist = shuffle((styleId && MUSIC_TRACKS[styleId]) || []);
     this.idx = 0;
-    this.el = new Audio();
-    this.el.preload = 'auto';
-    this.el.volume = 0;
-    this.el.onended = () => this._next();
-    if (this.playlist[0]) this.el.src = this.playlist[0].file;
+    this.offset = 0;
+    if (this.playlist[0]) this._prefetch(this.playlist[0].file); // warm the first track
   }
 
   play(): void {
-    if (this._isPlaying || !this.el || !this.playlist.length) return;
+    if (this._isPlaying || !this.ctx || !this.playlist.length) return;
     this._isPlaying = true;
-    this.el.volume = 0;
-    this.el.play().catch(() => { /* autoplay blocked / not ready */ });
-    this._ramp(this._vol, 1.2);
-    this._announce();
+    this._started = true;
+    this._rampMaster(this._vol, 1.2);
+    this._playFrom(this.idx, this.offset || 0);
   }
 
   pause(): void {
-    if (!this._isPlaying || !this.el) return;
+    if (!this._isPlaying) return;
     this._isPlaying = false;
-    this._ramp(0, 0.6, () => this.el?.pause());
+    if (this.ctx && this.startAt) {
+      this.offset = Math.max(0, (this.ctx.currentTime - this.startAt) + this.offset);
+    }
+    this.token++;                 // cancel the scheduled advance
+    this._rampMaster(0, 0.6);
+    this._stopSource(0.65);
   }
 
   resume(): void {
-    if (this._isPlaying || !this.el || !this.playlist.length) return;
+    if (this._isPlaying || !this.ctx || !this.playlist.length) return;
+    if (!this._started) { this.play(); return; }
     this._isPlaying = true;
-    this.el.play().catch(() => {});
-    this._ramp(this._vol, 1.0);
-    this._announce();
+    this._rampMaster(this._vol, 1.0);
+    this._playFrom(this.idx, this.offset || 0);
   }
 
   setVolume(v: number): void {
     this._vol = Math.max(0, Math.min(1, v));
-    if (this._isPlaying) this._ramp(this._vol, 0.3);
+    if (this._isPlaying) this._rampMaster(this._vol, 0.3);
   }
 
-  /** Skip to the next track in the playlist (tap the active genre again). */
+  /** Skip to the next track (tap the active genre again). */
   next(): void {
-    if (!this.el || this.playlist.length < 2) return;
-    if (this._isPlaying) {
-      // quick fade out, then advance + fade the next one in
-      this._ramp(0, 0.35, () => this._next());
-    } else {
-      this.idx = (this.idx + 1) % this.playlist.length;
-      this.el.src = this.playlist[this.idx].file;
-      this._announce();
-    }
+    if (this.playlist.length < 2) return;
+    this.offset = 0;
+    this.idx = (this.idx + 1) % this.playlist.length;
+    if (this._isPlaying) this._playFrom(this.idx, 0);
+    else this._announce();
   }
 
-  /** Fade out (used for a smooth crossfade when switching styles). */
+  /** Fade out (smooth crossfade when switching styles). */
   fadeOut(sec = 0.8): void {
     this._isPlaying = false;
-    this._ramp(0, sec, () => this.el?.pause());
+    this.token++;
+    this._rampMaster(0, sec);
+    this._stopSource(sec + 0.05);
   }
 
   dispose(): void {
     this._isPlaying = false;
-    this._clearRamp();
-    if (this.el) {
-      try { this.el.pause(); this.el.onended = null; this.el.src = ''; this.el.load(); } catch { /* ignore */ }
-    }
-    this.el = null;
+    this.token++;
+    this._stopSource(0.05);
+    try { this.master?.disconnect(); } catch { /* ignore */ }
+    this.master = null;
+    this.buffers.clear();
   }
 
   get isPlaying() { return this._isPlaying; }
@@ -106,37 +122,86 @@ export class RealMusicEngine {
 
   // ── Private ─────────────────────────────────────────────────────────────────
 
-  private _next(): void {
-    if (!this.el || !this.playlist.length) return;
-    this.idx = (this.idx + 1) % this.playlist.length;
-    this.el.src = this.playlist[this.idx].file;
-    this.el.volume = 0;
-    if (this._isPlaying) {
-      this.el.play().catch(() => {});
-      this._ramp(this._vol, 1.5);
-    }
+  private async _prefetch(file?: string): Promise<void> {
+    if (!file || !this.ctx || this.buffers.has(file)) return;
+    try {
+      const res = await fetch(file);
+      const arr = await res.arrayBuffer();
+      const buf = await this.ctx.decodeAudioData(arr);
+      this.buffers.set(file, buf);
+    } catch { /* leave unloaded; _playFrom will retry */ }
+  }
+
+  private async _playFrom(i: number, off: number): Promise<void> {
+    if (!this.ctx || !this.master) return;
+    const myToken = ++this.token;
+    this._stopSource(0.12);          // fade out whatever's playing
+    const track = this.playlist[i];
+    if (!track) return;
     this._announce();
+
+    let buf = this.buffers.get(track.file);
+    if (!buf) {
+      await this._prefetch(track.file);
+      if (myToken !== this.token || !this._isPlaying) return;
+      buf = this.buffers.get(track.file);
+    }
+    if (!buf || myToken !== this.token || !this._isPlaying) return;
+
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const g = this.ctx.createGain();
+    src.connect(g);
+    g.connect(this.master);
+
+    const now = this.ctx.currentTime;
+    const startOff = Math.max(0, Math.min(off, buf.duration - 0.1));
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(1, now + 0.4);   // gentle fade-in
+    src.start(now, startOff);
+
+    this.src = src;
+    this.srcGain = g;
+    this.startAt = now;
+    this.offset = startOff;
+
+    // Prefetch the next track so the hand-off is gapless
+    this._prefetch(this.playlist[(i + 1) % this.playlist.length]?.file);
+
+    // Auto-advance when this track ends (no user gesture needed — Web Audio)
+    src.onended = () => {
+      if (myToken !== this.token || !this._isPlaying) return;
+      this.offset = 0;
+      this.idx = (i + 1) % this.playlist.length;
+      this._playFrom(this.idx, 0);
+    };
+  }
+
+  private _stopSource(fade: number): void {
+    if (!this.ctx) return;
+    const s = this.src, g = this.srcGain;
+    this.src = null; this.srcGain = null;
+    if (s && g) {
+      try {
+        const now = this.ctx.currentTime;
+        g.gain.cancelScheduledValues(now);
+        g.gain.setValueAtTime(g.gain.value, now);
+        g.gain.linearRampToValueAtTime(0, now + fade);
+        s.onended = null;
+        s.stop(now + fade + 0.02);
+      } catch { /* already stopped */ }
+    }
+  }
+
+  private _rampMaster(to: number, sec: number): void {
+    if (!this.master || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    this.master.gain.cancelScheduledValues(now);
+    this.master.gain.setValueAtTime(this.master.gain.value, now);
+    this.master.gain.linearRampToValueAtTime(to, now + sec);
   }
 
   private _announce(): void {
     this.onTrackChange?.(this.currentTitle);
-  }
-
-  private _ramp(target: number, sec: number, done?: () => void): void {
-    if (!this.el) return;
-    this._clearRamp();
-    const el = this.el;
-    const start = el.volume;
-    const t0 = performance.now();
-    const dur = Math.max(1, sec * 1000);
-    this.rampId = setInterval(() => {
-      const p = Math.min(1, (performance.now() - t0) / dur);
-      try { el.volume = Math.max(0, Math.min(1, start + (target - start) * p)); } catch { /* detached */ }
-      if (p >= 1) { this._clearRamp(); done?.(); }
-    }, 50);
-  }
-
-  private _clearRamp(): void {
-    if (this.rampId) { clearInterval(this.rampId); this.rampId = null; }
   }
 }
