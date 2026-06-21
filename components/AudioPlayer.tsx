@@ -18,6 +18,7 @@ import { isRealMusicStyle } from '@/lib/music-tracks';
 import { STATE_STYLES, MUSIC_STYLES, DEFAULT_STYLE, type StyleId } from '@/lib/music-styles';
 import { useThemePalette } from '@/lib/use-theme';
 import { RingGauge } from '@/components/RingGauge';
+import { BackgroundAudio } from '@/lib/background-audio';
 import type { MentalState } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -58,6 +59,7 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
   const binauralRef = useRef<BrainWaveEngine | null>(null);
   const musicRef    = useRef<MusicEngine | null>(null);
   const noiseRef    = useRef<NoiseEngine | null>(null);
+  const bgRef       = useRef<BackgroundAudio | null>(null);
 
   const [isPlaying,   setIsPlaying]   = useState(false);
   const [ready,       setReady]       = useState(false);
@@ -89,16 +91,39 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
     binauralRef.current = new BrainWaveEngine();
     musicRef.current    = makeMusicEngine(styleId, setMusicTitle);
     noiseRef.current    = new NoiseEngine();
+    bgRef.current       = new BackgroundAudio();
     return () => {
       binauralRef.current?.dispose();
       musicRef.current?.dispose();
       noiseRef.current?.dispose();
+      bgRef.current?.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Shared pause/resume so the play button AND lock-screen controls use one path.
+  const doPause = useCallback(() => {
+    binauralRef.current?.pause();
+    musicRef.current?.pause();
+    noiseRef.current?.pause();
+    setIsPlaying(false);
+    onPlayingChange?.(false);
+    bgRef.current?.setPlaying(false);
+  }, [onPlayingChange]);
+
+  const doResume = useCallback(() => {
+    bgRef.current?.start();
+    binauralRef.current?.resume();
+    musicRef.current?.resume();
+    noiseRef.current?.resume();
+    setIsPlaying(true);
+    onPlayingChange?.(true);
+    bgRef.current?.setPlaying(true);
+  }, [onPlayingChange]);
+
   const handleToggle = useCallback(async () => {
     setError('');
+    bgRef.current?.start(); // claim the audio session inside the user gesture
     try {
       if (!ready) {
         const binaural = binauralRef.current!;
@@ -116,33 +141,39 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
         music.setVolume(musicVol);
         music.play();
 
-        // Nature soundscape (Tone.js noise — never loops)
+        // Nature soundscape
         await noise.init();
         await noise.setSoundscape(selectedId);
         noise.setVolume(natureVol);
         noise.play();
 
+        // Lock-screen now-playing + remote controls
+        bgRef.current?.setHandlers({
+          onPlay: doResume,
+          onPause: doPause,
+          onNext: () => musicRef.current?.next?.(),
+        });
+        bgRef.current?.setMetadata(musicTitle || musicProfile.description.split(',')[0]);
+
         setReady(true);
         setIsPlaying(true);
         onPlayingChange?.(true);
+        bgRef.current?.setPlaying(true);
       } else if (isPlaying) {
-        binauralRef.current?.pause();
-        musicRef.current?.pause();
-        noiseRef.current?.pause();
-        setIsPlaying(false);
-        onPlayingChange?.(false);
+        doPause();
       } else {
-        binauralRef.current?.resume();
-        musicRef.current?.resume();
-        noiseRef.current?.resume();
-        setIsPlaying(true);
-        onPlayingChange?.(true);
+        doResume();
       }
     } catch (e) {
       setError('Could not start audio. Please allow audio in your browser.');
       console.error(e);
     }
-  }, [ready, isPlaying, beatHz, binauralVol, musicVol, natureVol, selectedId, styleId, track.mentalState, onPlayingChange]);
+  }, [ready, isPlaying, beatHz, binauralVol, musicVol, natureVol, selectedId, styleId, track.mentalState, onPlayingChange, doPause, doResume, musicTitle, musicProfile]);
+
+  // Keep the lock-screen title in sync with the current track.
+  useEffect(() => {
+    if (ready) bgRef.current?.setMetadata(musicTitle || musicProfile.description.split(',')[0]);
+  }, [musicTitle, ready, musicProfile]);
 
   const handleBinauralVol = (v: number) => { setBinauralVol(v); binauralRef.current?.setBinauralVolume(v); };
   const handleMusicVol    = (v: number) => { setMusicVol(v);    musicRef.current?.setVolume(v); };
