@@ -16,6 +16,8 @@ import { AmbientMusicEngine, MUSIC_PROFILES } from '@/lib/ambient-music-engine';
 import { RealMusicEngine } from '@/lib/real-music-engine';
 import { isRealMusicStyle } from '@/lib/music-tracks';
 import { STATE_STYLES, MUSIC_STYLES, DEFAULT_STYLE, type StyleId } from '@/lib/music-styles';
+import { useThemePalette } from '@/lib/use-theme';
+import { RingGauge } from '@/components/RingGauge';
 import type { MentalState } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +54,7 @@ function makeMusicEngine(styleId: StyleId, onTitle: (t: string) => void): MusicE
 }
 
 export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compact = false }: Props) {
+  const palette = useThemePalette();
   const binauralRef = useRef<BrainWaveEngine | null>(null);
   const musicRef    = useRef<MusicEngine | null>(null);
   const noiseRef    = useRef<NoiseEngine | null>(null);
@@ -210,28 +213,49 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
       <div className={compact ? 'hidden' : 'space-y-4'}>
         <p className="text-xs font-semibold text-white/45 uppercase tracking-[0.14em]">Mixer</p>
 
-        {[
-          { label: '🧠 Binaural Beat',  suffix: `${beatHz.toFixed(1)} Hz`,          value: beatHz,      min: 0.5, max: 40, step: 0.5, onChange: handleBeatHz },
-          { label: '〰️ Binaural Tone',  suffix: `${Math.round(binauralVol * 100)}%`, value: binauralVol, min: 0,   max: 1,  step: 0.01, onChange: handleBinauralVol },
-          { label: '🎹 Music',           suffix: `${Math.round(musicVol * 100)}%`,    value: musicVol,    min: 0,   max: 1,  step: 0.01, onChange: handleMusicVol },
-        ].map(({ label, suffix, value, min, max, step, onChange }) => (
-          <div key={label} className="space-y-1.5">
-            <div className="flex justify-between text-sm text-white/65">
-              <span>{label}</span>
-              <span className="font-mono text-white/45">{suffix}</span>
-            </div>
-            <input
-              type="range" min={min} max={max} step={step}
-              value={value}
-              onChange={(e) => onChange(parseFloat(e.target.value))}
-              className="w-full"
+        {palette === 'nebula' ? (
+          /* Nebula Wave — circular ring gauges (drag up/down to adjust) */
+          <div className="flex justify-around items-start pt-1">
+            <RingGauge
+              label="Binaural Beat" display={`${beatHz.toFixed(0)} Hz`}
+              value={(beatHz - 0.5) / 39.5}
+              onChange={(v) => handleBeatHz(0.5 + v * 39.5)}
+            />
+            <RingGauge
+              label="Binaural Tone" display={`${Math.round(binauralVol * 100)}%`}
+              value={binauralVol} onChange={handleBinauralVol}
+            />
+            <RingGauge
+              label="Music Mix" display={`${Math.round(musicVol * 100)}%`}
+              value={musicVol} onChange={handleMusicVol}
             />
           </div>
-        ))}
+        ) : (
+          <>
+            {[
+              { label: '🧠 Binaural Beat',  suffix: `${beatHz.toFixed(1)} Hz`,          value: beatHz,      min: 0.5, max: 40, step: 0.5, onChange: handleBeatHz },
+              { label: '〰️ Binaural Tone',  suffix: `${Math.round(binauralVol * 100)}%`, value: binauralVol, min: 0,   max: 1,  step: 0.01, onChange: handleBinauralVol },
+              { label: '🎹 Music',           suffix: `${Math.round(musicVol * 100)}%`,    value: musicVol,    min: 0,   max: 1,  step: 0.01, onChange: handleMusicVol },
+            ].map(({ label, suffix, value, min, max, step, onChange }) => (
+              <div key={label} className="space-y-1.5">
+                <div className="flex justify-between text-sm text-white/65">
+                  <span>{label}</span>
+                  <span className="font-mono text-white/45">{suffix}</span>
+                </div>
+                <input
+                  type="range" min={min} max={max} step={step}
+                  value={value}
+                  onChange={(e) => onChange(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+            ))}
 
-        <div className="flex justify-between text-[11px] text-white/40 -mt-0.5">
-          <span>δ Delta</span><span>θ Theta</span><span>α Alpha</span><span>β Beta</span><span>γ Gamma</span>
-        </div>
+            <div className="flex justify-between text-[11px] text-white/40 -mt-0.5">
+              <span>δ Delta</span><span>θ Theta</span><span>α Alpha</span><span>β Beta</span><span>γ Gamma</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Music style picker — hidden in compact mode */}

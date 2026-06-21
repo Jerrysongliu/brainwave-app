@@ -74,15 +74,32 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     let W = 0, H = 0, dpr = 1;
 
-    // Pick up the active theme accent so the aurora carries the theme color.
+    // Pick up the active theme accent + mode so the bg matches the theme.
     const themeAccent = { current: '#8b5cf6' };
-    const readAccent = () => {
+    const themeMode = { current: 'aurora' };
+    const readTheme = () => {
       const v = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
       if (/^#([0-9a-fA-F]{6})$/.test(v)) themeAccent.current = v;
+      themeMode.current = document.documentElement.getAttribute('data-theme') || 'aurora';
     };
-    readAccent();
-    const mo = new MutationObserver(readAccent);
+    readTheme();
+    const mo = new MutationObserver(readTheme);
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+
+    // Galaxy stars (used only by the Nebula theme)
+    interface Star { r: number; ang: number; size: number; b: number; }
+    let stars: Star[] = [];
+    const buildNebula = () => {
+      stars = [];
+      const N = Math.min(700, Math.round((W * H) / 3200));
+      const arms = 3, twist = 3.4;
+      for (let i = 0; i < N; i++) {
+        const r = Math.pow(Math.random(), 0.6);
+        const arm = Math.floor(Math.random() * arms);
+        const ang = arm * ((2 * Math.PI) / arms) + r * twist + (Math.random() - 0.5) * 0.55;
+        stars.push({ r, ang, size: 0.5 + Math.random() * 1.7, b: 0.25 + Math.random() * 0.7 });
+      }
+    };
 
     // Aurora blobs — large soft drifting nebula clouds
     const blobs = Array.from({ length: 4 }, (_, i) => ({
@@ -102,6 +119,7 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
       canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       build();
+      buildNebula();
     };
 
     let parts: P[] = [];
@@ -144,6 +162,58 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
       return hexRgb(mood);
     };
 
+    const lerp3 = (a: number[], b: number[], t: number) =>
+      [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
+    // Nebula Wave theme — a slowly-rotating galaxy: drifting clouds, bright core,
+    // spiral-arm stars graded core→accent→edge.
+    const renderNebula = (now: number, baseA: number) => {
+      ctx.clearRect(0, 0, W, H);
+      const cx = W / 2, cy = H * 0.46;
+      const maxR = Math.min(W, H) * 0.64;
+      const rot = now * 0.00003 * (activeRef.current ? 1 : 0.4);
+      const acc = hexRgb(themeAccent.current);
+      ctx.globalCompositeOperation = 'lighter';
+
+      const clouds: { col: number[]; ox: number; oy: number; rad: number; a: number }[] = [
+        { col: acc,             ox: 0.0,   oy: 0.0,   rad: 1.0,  a: 0.13 },
+        { col: [236, 72, 153],  ox: 0.18,  oy: -0.10, rad: 0.8,  a: 0.09 },
+        { col: [80, 110, 230],  ox: -0.16, oy: 0.12,  rad: 0.9,  a: 0.09 },
+        { col: [251, 146, 60],  ox: 0.10,  oy: 0.16,  rad: 0.55, a: 0.06 },
+      ];
+      for (let i = 0; i < clouds.length; i++) {
+        const c = clouds[i];
+        const dx = Math.sin(now * 0.00005 + i) * 0.04;
+        const px = cx + (c.ox + dx) * W, py = cy + c.oy * H;
+        const g = ctx.createRadialGradient(px, py, 0, px, py, c.rad * maxR);
+        g.addColorStop(0, `rgba(${c.col[0]|0},${c.col[1]|0},${c.col[2]|0},${c.a * baseA})`);
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      }
+
+      // bright core
+      const cg = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 0.34);
+      cg.addColorStop(0, `rgba(255,240,220,${0.35 * baseA})`);
+      cg.addColorStop(0.4, `rgba(${acc[0]},${acc[1]},${acc[2]},${0.18 * baseA})`);
+      cg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = cg; ctx.fillRect(0, 0, W, H);
+
+      // spiral-arm stars
+      const core = [255, 235, 205], edge = [90, 110, 220];
+      for (const s of stars) {
+        const a = s.ang + rot * (1 - s.r * 0.4);
+        const rr = s.r * maxR;
+        const x = cx + Math.cos(a) * rr;
+        const y = cy + Math.sin(a) * rr * 0.6; // elliptical tilt
+        const col = s.r < 0.5 ? lerp3(core, acc, s.r / 0.5) : lerp3(acc, edge, (s.r - 0.5) / 0.5);
+        ctx.globalAlpha = s.b * baseA;
+        ctx.fillStyle = `rgb(${col[0]|0},${col[1]|0},${col[2]|0})`;
+        ctx.beginPath(); ctx.arc(x, y, s.size, 0, 6.28); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    };
+
     const frame = (now: number) => {
       const dt = Math.min(2.5, (now - last) / 16.67); last = now;
       const scene = SCENE[sceneRef.current];
@@ -153,6 +223,13 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
       const motion = activeRef.current ? 1 : 0.4;
       const breathe = 0.82 + 0.18 * Math.sin(now * 0.00026);
       const baseA = (activeRef.current ? 1 : 0.55) * breathe;
+
+      // Nebula theme overrides the soundscape scene with a galaxy swirl.
+      if (themeMode.current === 'nebula') {
+        renderNebula(now, baseA);
+        rafRef.current = requestAnimationFrame(frame);
+        return;
+      }
 
       ctx.clearRect(0, 0, W, H);
       ctx.globalCompositeOperation = 'lighter';

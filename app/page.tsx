@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MoodSelector } from '@/components/MoodSelector';
+import { OrbitalMoodSelector } from '@/components/OrbitalMoodSelector';
+import { SoundscapeBackground } from '@/components/SoundscapeBackground';
+import { useThemePalette } from '@/lib/use-theme';
 import type { MentalState, Duration, Intensity } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +27,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
 
 export default function Home() {
   const router = useRouter();
+  const palette = useThemePalette();
   const [mentalState, setMentalState] = useState<MentalState | null>(null);
   const [duration, setDuration] = useState<Duration>(15);
   const [intensity, setIntensity] = useState<Intensity>('moderate');
@@ -74,12 +78,16 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen">
-      {/* Background aura orbs */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="orb-1 absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full blur-[120px]" style={{ background: 'var(--accent)', opacity: 0.12 }} />
-        <div className="orb-2 absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full blur-[100px]" style={{ background: 'var(--accent-2)', opacity: 0.10 }} />
-        <div className="absolute top-[40%] left-[50%] w-[300px] h-[300px] rounded-full blur-[80px]" style={{ background: 'var(--accent-3)', opacity: 0.08 }} />
-      </div>
+      {/* Background — galaxy swirl for Nebula, aura orbs otherwise */}
+      {palette === 'nebula' ? (
+        <SoundscapeBackground soundscape="none" mentalState={mentalState ?? 'meditation'} active={false} />
+      ) : (
+        <div className="pointer-events-none fixed inset-0 overflow-hidden">
+          <div className="orb-1 absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full blur-[120px]" style={{ background: 'var(--accent)', opacity: 0.12 }} />
+          <div className="orb-2 absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full blur-[100px]" style={{ background: 'var(--accent-2)', opacity: 0.10 }} />
+          <div className="absolute top-[40%] left-[50%] w-[300px] h-[300px] rounded-full blur-[80px]" style={{ background: 'var(--accent-3)', opacity: 0.08 }} />
+        </div>
+      )}
 
       <div className="relative max-w-3xl mx-auto px-5 py-12 space-y-14">
 
@@ -130,7 +138,9 @@ export default function Home() {
         {/* Mood selector */}
         <div className="space-y-4 fade-up">
           <p className="text-xs font-medium text-white/30 uppercase tracking-[0.2em]">Choose your state</p>
-          <MoodSelector selected={mentalState} onSelect={setMentalState} />
+          {palette === 'nebula'
+            ? <OrbitalMoodSelector selected={mentalState} onSelect={setMentalState} />
+            : <MoodSelector selected={mentalState} onSelect={setMentalState} />}
         </div>
 
         {/* Duration + Intensity row */}

@@ -8,6 +8,7 @@ import { NeuralOrb } from '@/components/NeuralOrb';
 import { SciencePanel } from '@/components/SciencePanel';
 import { SoundscapeBackground } from '@/components/SoundscapeBackground';
 import { type NoiseSoundscape } from '@/lib/noise-engine';
+import { useThemePalette } from '@/lib/use-theme';
 import { MENTAL_STATE_META } from '@/lib/brainwave-science';
 
 const STATE_BG: Record<string, string> = {
@@ -55,6 +56,7 @@ export default function PlayerPage() {
   const [saved, setSaved] = useState(false);
   const [showMixer, setShowMixer] = useState(false);
   const [currentSound, setCurrentSound] = useState<NoiseSoundscape>('rain');
+  const palette = useThemePalette();
   const elapsed = useTimer(isPlaying);
 
   useEffect(() => {
@@ -109,9 +111,11 @@ export default function PlayerPage() {
       {/* Main content */}
       <div className="relative w-full max-w-2xl px-5 pb-12 flex flex-col items-center gap-8">
 
-        {/* Neural orb + track info */}
+        {/* Neural orb + track info (orb hidden for Nebula — the galaxy is the visual) */}
         <div className="flex flex-col items-center gap-5 pt-4">
-          <NeuralOrb mentalState={track.mentalState} isPlaying={isPlaying} size={220} />
+          {palette === 'nebula'
+            ? <div style={{ height: 200 }} className="flex items-center justify-center" />
+            : <NeuralOrb mentalState={track.mentalState} isPlaying={isPlaying} size={220} />}
 
           <div className="text-center space-y-2">
             <p className="text-xs text-white/55 tracking-[0.2em] uppercase font-medium">{meta.label}</p>
