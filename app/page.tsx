@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { MoodSelector } from '@/components/MoodSelector';
 import { OrbitalMoodSelector } from '@/components/OrbitalMoodSelector';
 import { ListMoodSelector } from '@/components/ListMoodSelector';
+import { PrismMoodSelector } from '@/components/PrismMoodSelector';
 import { SoundscapeBackground } from '@/components/SoundscapeBackground';
 import { useThemePalette } from '@/lib/use-theme';
 import type { MentalState, Duration, Intensity } from '@/types';
@@ -79,8 +80,8 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen">
-      {/* Background — themed canvas for Nebula/Holographic, aura orbs otherwise */}
-      {palette === 'nebula' || palette === 'holographic' ? (
+      {/* Background — themed canvas for Nebula/Holographic/Iridescence, aura orbs otherwise */}
+      {palette === 'nebula' || palette === 'holographic' || palette === 'iridescence' ? (
         <SoundscapeBackground soundscape="none" mentalState={mentalState ?? 'meditation'} active={false} />
       ) : (
         <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -143,6 +144,8 @@ export default function Home() {
             ? <OrbitalMoodSelector selected={mentalState} onSelect={setMentalState} />
             : palette === 'holographic'
             ? <ListMoodSelector selected={mentalState} onSelect={setMentalState} />
+            : palette === 'iridescence'
+            ? <PrismMoodSelector selected={mentalState} onSelect={setMentalState} />
             : <MoodSelector selected={mentalState} onSelect={setMentalState} />}
         </div>
 

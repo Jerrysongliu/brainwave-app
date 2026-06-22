@@ -270,6 +270,36 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
       ctx.globalCompositeOperation = 'source-over';
     };
 
+    // Iridescence theme — a soft, slowly-flowing pastel-prism mesh.
+    const IRID = [[165, 243, 252], [196, 181, 253], [251, 207, 232], [187, 247, 208], [167, 243, 208]];
+    const renderIridescence = (now: number, baseA: number) => {
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalCompositeOperation = 'lighter';
+      const maxR = Math.max(W, H);
+      for (let i = 0; i < IRID.length; i++) {
+        const c = IRID[i];
+        const ph = i * 1.7;
+        const cx = (0.5 + 0.42 * Math.sin(now * 0.00004 + ph)) * W;
+        const cy = (0.5 + 0.42 * Math.cos(now * 0.00005 + ph * 1.3)) * H;
+        const rad = maxR * (0.46 + 0.1 * Math.sin(now * 0.00006 + ph));
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+        g.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},${0.11 * baseA})`);
+        g.addColorStop(0.5, `rgba(${c[0]},${c[1]},${c[2]},${0.04 * baseA})`);
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      }
+      // a few drifting light sparkles
+      for (const s of stars.slice(0, 40)) {
+        const x = (s.r * 1.3 % 1) * W;
+        const y = ((s.ang / 6.28 + now * 0.000015 * (0.4 + s.r)) % 1) * H;
+        ctx.globalAlpha = (0.25 + 0.5 * (0.5 + 0.5 * Math.sin(now * 0.001 + s.ang))) * baseA;
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.beginPath(); ctx.arc(x, y, s.size * 0.7, 0, 6.28); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    };
+
     const frame = (now: number) => {
       const dt = Math.min(2.5, (now - last) / 16.67); last = now;
       const scene = SCENE[sceneRef.current];
@@ -289,6 +319,12 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
       // Holographic theme — neon network.
       if (themeMode.current === 'holographic') {
         renderHolographic(now, baseA);
+        rafRef.current = requestAnimationFrame(frame);
+        return;
+      }
+      // Iridescence theme — flowing pastel-prism mesh.
+      if (themeMode.current === 'iridescence') {
+        renderIridescence(now, baseA);
         rafRef.current = requestAnimationFrame(frame);
         return;
       }
