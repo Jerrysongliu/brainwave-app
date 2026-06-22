@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { GeneratedTrack } from '@/types';
-import { AudioPlayer } from '@/components/AudioPlayer';
+import { AudioPlayer, type AudioPlayerHandle } from '@/components/AudioPlayer';
 import { NeuralOrb } from '@/components/NeuralOrb';
 import { SciencePanel } from '@/components/SciencePanel';
 import { SoundscapeBackground } from '@/components/SoundscapeBackground';
@@ -57,6 +57,7 @@ export default function PlayerPage() {
   const [showMixer, setShowMixer] = useState(false);
   const [currentSound, setCurrentSound] = useState<NoiseSoundscape>('rain');
   const palette = useThemePalette();
+  const playerRef = useRef<AudioPlayerHandle | null>(null);
   const elapsed = useTimer(isPlaying);
 
   useEffect(() => {
@@ -114,7 +115,16 @@ export default function PlayerPage() {
         {/* Neural orb + track info (orb hidden for Nebula — the galaxy is the visual) */}
         <div className="flex flex-col items-center gap-5 pt-4">
           {palette === 'nebula'
-            ? <div style={{ height: 200 }} className="flex items-center justify-center" />
+            ? (
+              <button
+                onClick={() => playerRef.current?.toggle()}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+                className="nebula-halo relative flex items-center justify-center rounded-full active:scale-95 transition-transform"
+                style={{ width: 224, height: 224, border: '1px solid var(--accent-border)', background: 'rgba(255,255,255,0.03)' }}
+              >
+                <span className="text-5xl" style={{ color: 'var(--text)' }}>{isPlaying ? '⏸' : '▶'}</span>
+              </button>
+            )
             : <NeuralOrb mentalState={track.mentalState} isPlaying={isPlaying} size={220} />}
 
           <div className="text-center space-y-2">
@@ -134,6 +144,7 @@ export default function PlayerPage() {
         <div className="w-full space-y-3">
           {/* AudioPlayer is always rendered — toggling compact never unmounts engines */}
           <AudioPlayer
+            ref={playerRef}
             track={track}
             onPlayingChange={setIsPlaying}
             onSoundscapeChange={setCurrentSound}

@@ -44,15 +44,15 @@ export function OrbitalMoodSelector({ selected, onSelect }: Props) {
         {center ? (
           <button
             onClick={() => onSelect(center)}
-            className="ring-accent flex flex-col items-center justify-center rounded-full transition-all"
+            className="nebula-halo flex flex-col items-center justify-center rounded-full transition-all"
             style={{
-              width: 132, height: 132,
+              width: 138, height: 138,
               background: 'var(--accent-soft)',
               border: '1px solid var(--accent-border)',
             }}
           >
             <span className="text-3xl leading-none">{MENTAL_STATE_META[center].emoji}</span>
-            <span className="mt-1.5 text-sm font-semibold text-white/90">{MENTAL_STATE_META[center].label}</span>
+            <span className="mt-1.5 text-[15px] font-semibold text-white/90">{MENTAL_STATE_META[center].label}</span>
           </button>
         ) : (
           <div
@@ -75,13 +75,13 @@ export function OrbitalMoodSelector({ selected, onSelect }: Props) {
             onClick={() => onSelect(state)}
             className={cn(
               'absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center rounded-full transition-all active:scale-95',
-              'bg-white/5 border border-white/12 hover:bg-white/10 hover:border-white/25'
+              'bg-white/5 border border-white/15 hover:bg-white/10 hover:border-white/30'
             )}
-            style={{ left: `${p.x}%`, top: `${p.y}%`, width: 72, height: 72 }}
+            style={{ left: `${p.x}%`, top: `${p.y}%`, width: 78, height: 78 }}
             title={meta.label}
           >
             <span className="text-xl leading-none">{meta.emoji}</span>
-            <span className="mt-0.5 text-[9px] font-medium text-white/60 px-1 text-center leading-tight">{meta.label}</span>
+            <span className="mt-0.5 text-[10px] font-medium text-white/70 px-1 text-center leading-tight">{meta.label}</span>
           </button>
         );
       })}

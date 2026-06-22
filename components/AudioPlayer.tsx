@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { GeneratedTrack } from '@/types';
 import { FREQUENCY_PROFILES } from '@/lib/brainwave-science';
 import {
@@ -54,7 +54,12 @@ function makeMusicEngine(styleId: StyleId, onTitle: (t: string) => void): MusicE
   return new AmbientMusicEngine();
 }
 
-export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compact = false }: Props) {
+export interface AudioPlayerHandle { toggle: () => void; isPlaying: boolean; }
+
+export const AudioPlayer = forwardRef<AudioPlayerHandle, Props>(function AudioPlayer(
+  { track, onPlayingChange, onSoundscapeChange, compact = false },
+  ref,
+) {
   const palette = useThemePalette();
   const binauralRef = useRef<BrainWaveEngine | null>(null);
   const musicRef    = useRef<MusicEngine | null>(null);
@@ -175,6 +180,9 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
     if (ready) bgRef.current?.setMetadata(musicTitle || musicProfile.description.split(',')[0]);
   }, [musicTitle, ready, musicProfile]);
 
+  // Let the player page drive playback (e.g. Nebula's hero play button).
+  useImperativeHandle(ref, () => ({ toggle: handleToggle, isPlaying }), [handleToggle, isPlaying]);
+
   const handleBinauralVol = (v: number) => { setBinauralVol(v); binauralRef.current?.setBinauralVolume(v); };
   const handleMusicVol    = (v: number) => { setMusicVol(v);    musicRef.current?.setVolume(v); };
   const handleNatureVol   = (v: number) => { setNatureVol(v);   noiseRef.current?.setVolume(v); };
@@ -222,15 +230,17 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
         <div className="text-red-500/90 text-sm bg-red-400/10 rounded-2xl px-4 py-2.5">{error}</div>
       )}
 
-      {/* Play button + track summary */}
+      {/* Play button + track summary (Nebula uses the hero button on the page) */}
       <div className="flex items-center gap-4">
-        <button
-          onClick={handleToggle}
-          className="ring-accent w-16 h-16 flex-shrink-0 rounded-full bg-white/12 hover:bg-white/20 active:scale-95 flex items-center justify-center text-2xl transition-all border border-white/15"
-          aria-label={isPlaying ? 'Pause' : 'Play'}
-        >
-          {isPlaying ? '⏸' : '▶'}
-        </button>
+        {palette !== 'nebula' && (
+          <button
+            onClick={handleToggle}
+            className="ring-accent w-16 h-16 flex-shrink-0 rounded-full bg-white/12 hover:bg-white/20 active:scale-95 flex items-center justify-center text-2xl transition-all border border-white/15"
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+          >
+            {isPlaying ? '⏸' : '▶'}
+          </button>
+        )}
         <div className="min-w-0">
           <p className="text-base font-semibold text-white/90 truncate">{musicTitle || musicProfile.description.split(',')[0]}</p>
           <p className="text-sm text-white/55 mt-0.5">
@@ -385,4 +395,4 @@ export function AudioPlayer({ track, onPlayingChange, onSoundscapeChange, compac
       )}
     </div>
   );
-}
+});

@@ -114,6 +114,13 @@
   animation: irid-shimmer 9s ease-in-out infinite alternate;
 }
 
+/* Nebula — breathing halo for the selected orbital node / hero ring */
+@keyframes nebula-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px var(--accent-border), 0 0 28px var(--accent-glow); }
+  50%      { box-shadow: 0 0 0 1px var(--accent-border), 0 0 52px var(--accent-glow); }
+}
+.nebula-halo { animation: nebula-pulse 3.6s ease-in-out infinite; }
+
 * { box-sizing: border-box; }
 
 body {
