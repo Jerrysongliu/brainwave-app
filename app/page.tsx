@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MoodSelector } from '@/components/MoodSelector';
 import { OrbitalMoodSelector } from '@/components/OrbitalMoodSelector';
+import { ListMoodSelector } from '@/components/ListMoodSelector';
 import { SoundscapeBackground } from '@/components/SoundscapeBackground';
 import { useThemePalette } from '@/lib/use-theme';
 import type { MentalState, Duration, Intensity } from '@/types';
@@ -78,8 +79,8 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen">
-      {/* Background — galaxy swirl for Nebula, aura orbs otherwise */}
-      {palette === 'nebula' ? (
+      {/* Background — themed canvas for Nebula/Holographic, aura orbs otherwise */}
+      {palette === 'nebula' || palette === 'holographic' ? (
         <SoundscapeBackground soundscape="none" mentalState={mentalState ?? 'meditation'} active={false} />
       ) : (
         <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -140,6 +141,8 @@ export default function Home() {
           <p className="text-xs font-medium text-white/30 uppercase tracking-[0.2em]">Choose your state</p>
           {palette === 'nebula'
             ? <OrbitalMoodSelector selected={mentalState} onSelect={setMentalState} />
+            : palette === 'holographic'
+            ? <ListMoodSelector selected={mentalState} onSelect={setMentalState} />
             : <MoodSelector selected={mentalState} onSelect={setMentalState} />}
         </div>
 

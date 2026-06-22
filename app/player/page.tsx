@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { GeneratedTrack } from '@/types';
 import { AudioPlayer, type AudioPlayerHandle } from '@/components/AudioPlayer';
 import { NeuralOrb } from '@/components/NeuralOrb';
+import { HoloVisualizer } from '@/components/HoloVisualizer';
 import { SciencePanel } from '@/components/SciencePanel';
 import { SoundscapeBackground } from '@/components/SoundscapeBackground';
 import { type NoiseSoundscape } from '@/lib/noise-engine';
@@ -125,6 +126,8 @@ export default function PlayerPage() {
                 <span className="text-5xl" style={{ color: 'var(--text)' }}>{isPlaying ? '⏸' : '▶'}</span>
               </button>
             )
+            : palette === 'holographic'
+            ? <HoloVisualizer isPlaying={isPlaying} size={220} />
             : <NeuralOrb mentalState={track.mentalState} isPlaying={isPlaying} size={220} />}
 
           <div className="text-center space-y-2">

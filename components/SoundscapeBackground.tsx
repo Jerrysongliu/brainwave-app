@@ -101,6 +101,17 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
       }
     };
 
+    // Network nodes (used only by the Holographic theme)
+    interface Node { x: number; y: number; vx: number; vy: number; }
+    let nodes: Node[] = [];
+    const buildHolo = () => {
+      nodes = [];
+      const N = Math.min(72, Math.round((W * H) / 26000));
+      for (let i = 0; i < N; i++) {
+        nodes.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - 0.5) * 0.25, vy: (Math.random() - 0.5) * 0.25 });
+      }
+    };
+
     // Aurora blobs — large soft drifting nebula clouds
     const blobs = Array.from({ length: 4 }, (_, i) => ({
       bx: 0.2 + 0.6 * Math.random(),
@@ -120,6 +131,7 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       build();
       buildNebula();
+      buildHolo();
     };
 
     let parts: P[] = [];
@@ -214,6 +226,50 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
       ctx.globalCompositeOperation = 'source-over';
     };
 
+    // Holographic theme — neon grid + drifting node network + scan line.
+    const renderHolographic = (now: number, baseA: number) => {
+      ctx.clearRect(0, 0, W, H);
+      const acc = hexRgb(themeAccent.current);
+      const A = (a: number) => `rgba(${acc[0]},${acc[1]},${acc[2]},${a})`;
+      ctx.globalCompositeOperation = 'lighter';
+
+      // faint grid
+      ctx.strokeStyle = A(0.045 * baseA); ctx.lineWidth = 1;
+      const step = 64;
+      for (let x = 0; x <= W; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y <= H; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+      // node network
+      const motion = activeRef.current ? 1 : 0.5;
+      for (const n of nodes) {
+        n.x += n.vx * motion; n.y += n.vy * motion;
+        if (n.x < 0 || n.x > W) n.vx *= -1;
+        if (n.y < 0 || n.y > H) n.vy *= -1;
+      }
+      const D = 150;
+      ctx.lineWidth = 1;
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+          const d = Math.hypot(dx, dy);
+          if (d < D) {
+            ctx.strokeStyle = A(0.11 * baseA * (1 - d / D));
+            ctx.beginPath(); ctx.moveTo(nodes[i].x, nodes[i].y); ctx.lineTo(nodes[j].x, nodes[j].y); ctx.stroke();
+          }
+        }
+      }
+      for (const n of nodes) { ctx.fillStyle = A(0.5 * baseA); ctx.beginPath(); ctx.arc(n.x, n.y, 1.7, 0, 6.28); ctx.fill(); }
+
+      // scan line sweeping down
+      const scanY = ((now * 0.05) % (H + 240)) - 120;
+      const sg = ctx.createLinearGradient(0, scanY - 70, 0, scanY + 70);
+      sg.addColorStop(0, A(0)); sg.addColorStop(0.5, A(0.07 * baseA)); sg.addColorStop(1, A(0));
+      ctx.fillStyle = sg; ctx.fillRect(0, scanY - 70, W, 140);
+
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    };
+
     const frame = (now: number) => {
       const dt = Math.min(2.5, (now - last) / 16.67); last = now;
       const scene = SCENE[sceneRef.current];
@@ -227,6 +283,12 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
       // Nebula theme overrides the soundscape scene with a galaxy swirl.
       if (themeMode.current === 'nebula') {
         renderNebula(now, baseA);
+        rafRef.current = requestAnimationFrame(frame);
+        return;
+      }
+      // Holographic theme — neon network.
+      if (themeMode.current === 'holographic') {
+        renderHolographic(now, baseA);
         rafRef.current = requestAnimationFrame(frame);
         return;
       }

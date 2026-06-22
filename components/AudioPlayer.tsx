@@ -18,6 +18,7 @@ import { isRealMusicStyle } from '@/lib/music-tracks';
 import { STATE_STYLES, MUSIC_STYLES, DEFAULT_STYLE, type StyleId } from '@/lib/music-styles';
 import { useThemePalette } from '@/lib/use-theme';
 import { RingGauge } from '@/components/RingGauge';
+import { FrequencyCard } from '@/components/FrequencyCard';
 import { BackgroundAudio } from '@/lib/background-audio';
 import type { MentalState } from '@/types';
 import { cn } from '@/lib/utils';
@@ -252,7 +253,9 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, Props>(function AudioPl
       {/* Mixer sliders — hidden in compact mode.
           (Soundscape volume lives in the Soundscape section, not here.) */}
       <div className={compact ? 'hidden' : 'space-y-4'}>
-        <p className="text-xs font-semibold text-white/45 uppercase tracking-[0.14em]">Mixer</p>
+        <p className="text-xs font-semibold text-white/45 uppercase tracking-[0.14em]">
+          {palette === 'holographic' ? 'Frequency Matrix' : 'Mixer'}
+        </p>
 
         {palette === 'nebula' ? (
           /* Nebula Wave — circular ring gauges (drag up/down to adjust) */
@@ -267,6 +270,23 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, Props>(function AudioPl
               value={binauralVol} onChange={handleBinauralVol}
             />
             <RingGauge
+              label="Music Mix" display={`${Math.round(musicVol * 100)}%`}
+              value={musicVol} onChange={handleMusicVol}
+            />
+          </div>
+        ) : palette === 'holographic' ? (
+          /* Holographic — neon "Frequency Matrix" EQ cards (drag left/right) */
+          <div className="grid grid-cols-3 gap-2.5">
+            <FrequencyCard
+              label="Binaural Beat" display={`${beatHz.toFixed(0)} Hz`}
+              value={(beatHz - 0.5) / 39.5}
+              onChange={(v) => handleBeatHz(0.5 + v * 39.5)}
+            />
+            <FrequencyCard
+              label="Binaural Tone" display={`${Math.round(binauralVol * 100)}%`}
+              value={binauralVol} onChange={handleBinauralVol}
+            />
+            <FrequencyCard
               label="Music Mix" display={`${Math.round(musicVol * 100)}%`}
               value={musicVol} onChange={handleMusicVol}
             />
