@@ -1,36 +1,36 @@
 BrainWave — Music Credits
 =========================
 
-Real recordings used for the Classical, Lo-fi, and Piano music styles, trimmed
-to MP3 and loudness-normalized. Each remains under its original license. CC BY /
-CC BY-SA require attribution (provided); CC0 / Public Domain require none.
+Ambient, Classical, and Piano tracks were provided by the app owner, downloaded
+from Pixabay and used under the Pixabay Content License (free for commercial
+use, no attribution required). Lo-fi tracks are HoliznaCC0 (CC0 / public domain).
+All were loudness-normalized to MP3. CC0 / Pixabay require no attribution.
 
-— Immersive Ambient —  (HoliznaCC0 — "Space · Sleep · Meditation", CC0 1.0)
-ambient-1.mp3 (Cosmic Waves), ambient-2.mp3 (Dreamscape),
-ambient-3.mp3 (Drifting), ambient-4.mp3 (Deep Meditation)
-  HoliznaCC0 — CC0 1.0 (public domain, no attribution required); trimmed to a
-  ~6-minute 192 kbps segment from the original long-form tracks.
-  https://freemusicarchive.org/music/holiznacc0/space-sleep-meditation
+NOTE: licenses below are recorded as Pixabay Content License based on the source
+filenames. If any track was actually sourced elsewhere (e.g. Freesound CC-BY),
+tell the maintainer so proper attribution can be added.
 
-— Lo-fi —  (HoliznaCC0 — "Public Domain Lofi", CC0 1.0)
-lofi-1.mp3 .. lofi-4.mp3
-  HoliznaCC0 — CC0 1.0 (public domain, no attribution required)
+— Lo-fi —  HoliznaCC0, "Public Domain Lofi" (CC0 1.0, no attribution required)
+  lofi-1.mp3 .. lofi-7.mp3
   https://freemusicarchive.org/music/holiznacc0/public-domain-lofi
 
-— Classical —
-classical-1.mp3 — Vivaldi, "Spring" (The Four Seasons), mvt. 1 — John Harrison (violin)
-  CC BY-SA — https://commons.wikimedia.org/wiki/File:Vivaldi_-_Four_Seasons_1_Spring_mvt_1_Allegro_-_John_Harrison_violin.oga
-classical-2.mp3 — J.S. Bach, "Air on the G String" (Suite No. 3)
-  Public Domain — https://commons.wikimedia.org/wiki/File:Air_(Bach).ogg
-classical-3.mp3 — Mozart, "Eine kleine Nachtmusik", 1. Allegro
-  CC BY-SA 2.0 — https://commons.wikimedia.org/wiki/File:Mozart_-_Eine_kleine_Nachtmusik_-_1._Allegro.ogg
-classical-4.mp3 — J.S. Bach, Brandenburg Concerto No. 3, 1. Allegro
-  CC BY-SA 2.0 — https://commons.wikimedia.org/wiki/File:Bach_-_Brandenburg_Concerto_No._3_-_1._Allegro.ogg
+— Ambient —  Pixabay Content License (no attribution required)
+  ambient-1  <= ambient-375840            ambient-8   <= ambient-dreamscape-529861
+  ambient-2  <= ambient-517427            ambient-9   <= ambient-inspiration-512366
+  ambient-3  <= ambient-ambient-music-511240   ambient-10 <= ambient-relax-509552
+  ambient-4  <= ambient-astronomy-511860  ambient-11  <= ambient-soft-511880
+  ambient-5  <= ambient-atmospheric-509533    ambient-12 <= ambient-soundscape254540
+  ambient-6  <= ambient-cinematic-510518  ambient-13  <= ambient-storytelling-512253
+  ambient-7  <= ambient-contemplative-512264
 
-— Piano —
-piano-1.mp3 — Chopin, Nocturne in E-flat, Op. 9 No. 2 — Frank Lévy
-  Public Domain — https://commons.wikimedia.org/wiki/File:Chopin_-_Nocturne_No._2_in_E-flat_major,_Op._9_No._2_(Frank_Levy).flac
-piano-2.mp3 — Debussy, "Clair de Lune" (Suite bergamasque)
-  Public Domain — https://commons.wikimedia.org/wiki/File:Clair_de_Lune_by_Claude_Debussy_(1905,_piano_solo).opus
-piano-3.mp3 — Chopin, Nocturne in C-sharp minor, Op. posth.
-  CC BY 3.0 — https://commons.wikimedia.org/wiki/File:Chopin,_Nocturne_in_C-sharp_minor,_Op._Posth.ogg
+— Classical —  Pixabay Content License (no attribution required)
+  classical-1 <= classical-upbeat-167605          classical-6 <= classical-upbeat-english-music-545533
+  classical-2 <= classical-upbeat-446258          classical-7 <= classical-upbeat-memories-522435
+  classical-3 <= classical-upbeat-documentary-music-508000   classical-8 <= classical-upbeat-nature-528316
+  classical-4 <= classical-upbeat-elegance-522215 classical-9 <= classical-upbeat-piano-music-490009
+  classical-5 <= classical-upbeat-elegant-522420
+
+— Piano —  Pixabay Content License (no attribution required)
+  piano-1 <= piano-541028                 piano-4 <= piano-gentle-baby-sleep-lullaby-dream-530944
+  piano-2 <= piano-background-487020       piano-5 <= piano-meditation-513747
+  piano-3 <= piano-calm-509384             piano-6 <= piano-soft-music-522730

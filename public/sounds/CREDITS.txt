@@ -1,53 +1,27 @@
 BrainWave — Soundscape Audio Credits
 ====================================
 
-The ambient recordings below were sourced from Wikimedia Commons and trimmed /
-loudness-normalized for use in this app. Each remains under its original license.
-CC BY and CC BY-SA require attribution (provided here); CC BY-SA files remain
-under share-alike terms. CC0 / Public Domain require no attribution.
+Soundscape recordings were provided by the app owner, downloaded from Pixabay
+and used under the Pixabay Content License (free for commercial use, no
+attribution required). All were loudness-normalized and trimmed to MP3.
 
-rain.mp3   — "Heavy Rain in Summer" by Fiver, der Hellseher
-             CC BY-SA 3.0 — https://creativecommons.org/licenses/by-sa/3.0
-             https://commons.wikimedia.org/wiki/File:Heavy_Rain_in_Summer.ogg
+Scenes with multiple files cycle when you tap the already-selected scene.
 
-storm.mp3  — "Summer thunderstorm in the woods" by Serg Childed
-             CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0
-             https://commons.wikimedia.org/wiki/File:Summer_thunderstorm_in_the_woods.ogg
+NOTE: licenses are recorded as Pixabay Content License based on the source
+filenames. If any clip was actually sourced elsewhere (e.g. Freesound CC-BY),
+tell the maintainer so proper attribution can be added.
 
-ocean.mp3  — "NausetBeach" by Groov3
-             CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0
-             https://commons.wikimedia.org/wiki/File:NausetBeach.ogg
-
-river.mp3  — "stream-river-water-up-close" by jackthemurray
-             CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
-             https://commons.wikimedia.org/wiki/File:433589_jackthemurray_stream-river-water-up-close.wav
-
-fire.mp3   — "Campfire sound ambience" by Glaneur de sons
-             CC BY 3.0 — https://creativecommons.org/licenses/by/3.0
-             https://commons.wikimedia.org/wiki/File:Campfire_sound_ambience.ogg
-
-forest.mp3 — "Gentle breeze and birds singing" by ezwa
-             Public domain
-             https://commons.wikimedia.org/wiki/File:Gentle_breeze_and_birds_singing.ogg
-
-pond.mp3   — "Nature sounds ambience in a Dordogne pond" by Glaneur de sons
-             CC BY 3.0 — https://creativecommons.org/licenses/by/3.0
-             https://commons.wikimedia.org/wiki/File:Nature_sounds_ambience_in_a_Dordogne_pond.ogg
-
-night.mp3  — "Field cricket unedited" by Thatcher
-             CC BY-SA 3.0 — https://creativecommons.org/licenses/by-sa/3.0
-             https://commons.wikimedia.org/wiki/File:Field_cricket_unedited.ogg
-
-— Additional scene variants (tap a selected scene again to switch) —
-rain-2.mp3   — "Heavy rain in Glenshaw, PA"        CC BY-SA 3.0
-               https://commons.wikimedia.org/wiki/File:Heavy_rain_in_Glenshaw,_PA.ogg
-storm-2.mp3  — "Rain and thunder (1)"              Public Domain
-               https://commons.wikimedia.org/wiki/File:Rain_and_thunder_(1).ogg
-ocean-2.mp3  — "On a pebble beach"                 Public Domain
-               https://commons.wikimedia.org/wiki/File:On_a_pebble_beach.ogg
-fire-2.mp3   — "Dry grass burning in open fireplace"  Public Domain
-               https://commons.wikimedia.org/wiki/File:Dry_grass_burning_in_open_fireplace.ogg
-forest-2.mp3 — "Birdsong morning 01"               CC BY-SA 4.0
-               https://commons.wikimedia.org/wiki/File:Birdsong_morning_01.ogg
-night-2.mp3  — "Field cricket Gryllus pennsylvanicus"  CC BY-SA 3.0
-               https://commons.wikimedia.org/wiki/File:Field_cricket_Gryllus_pennsylvanicus.ogg
+Pixabay Content License (no attribution required):
+  rain.mp3      <= rain-calming
+  rain-2.mp3    <= rain-gentle06
+  rain-3.mp3    <= rain-window
+  storm.mp3     <= Storm-withrain
+  storm-2.mp3   <= storm-withrain-516370
+  ocean.mp3     <= ocean-waves-372489
+  river.mp3     <= river-sounds-420904
+  fire.mp3      <= fire-crackling-sound-499636
+  forest.mp3    <= forest-ambience-296528
+  forest-2.mp3  <= forest-ambience-540695
+  night.mp3     <= night-atmosphere-with-crickets-374652
+  night-2.mp3   <= night-forest-with-frogs-and-crickets-451153
+  pond.mp3      <= ambience-528618   (generic "ambience" — reassign if needed)

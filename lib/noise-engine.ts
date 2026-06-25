@@ -37,15 +37,15 @@ interface SceneProfile {
 // next recording (crossfaded). Single-file scenes just re-trigger.
 
 const PROFILES: Record<NoiseSoundscape, SceneProfile> = {
-  rain:   { files: ['/sounds/rain.mp3', '/sounds/rain-2.mp3'],     gain: 0.85, xfade: 1.5 },
-  storm:  { files: ['/sounds/storm.mp3', '/sounds/storm-2.mp3'],   gain: 0.80, xfade: 3.0 },
-  ocean:  { files: ['/sounds/ocean.mp3', '/sounds/ocean-2.mp3'],   gain: 0.95, xfade: 3.0 },
-  river:  { files: ['/sounds/river.mp3'],                          gain: 0.80, xfade: 2.5 },
-  fire:   { files: ['/sounds/fire.mp3', '/sounds/fire-2.mp3'],     gain: 0.95, xfade: 2.0 },
-  forest: { files: ['/sounds/forest.mp3', '/sounds/forest-2.mp3'], gain: 0.90, xfade: 2.0 },
-  pond:   { files: ['/sounds/pond.mp3'],                           gain: 0.90, xfade: 2.5 },
-  night:  { files: ['/sounds/night.mp3', '/sounds/night-2.mp3'],   gain: 0.85, xfade: 1.2 },
-  none:   { files: [],                                             gain: 0,    xfade: 0   },
+  rain:   { files: ['/sounds/rain.mp3', '/sounds/rain-2.mp3', '/sounds/rain-3.mp3'], gain: 0.9, xfade: 2.5 },
+  storm:  { files: ['/sounds/storm.mp3', '/sounds/storm-2.mp3'],   gain: 0.9, xfade: 2.5 },
+  ocean:  { files: ['/sounds/ocean.mp3'],                          gain: 0.9, xfade: 2.5 },
+  river:  { files: ['/sounds/river.mp3'],                          gain: 0.9, xfade: 2.5 },
+  fire:   { files: ['/sounds/fire.mp3'],                           gain: 0.9, xfade: 2.0 },
+  forest: { files: ['/sounds/forest.mp3', '/sounds/forest-2.mp3'], gain: 0.9, xfade: 2.5 },
+  pond:   { files: ['/sounds/pond.mp3'],                           gain: 0.9, xfade: 2.5 },
+  night:  { files: ['/sounds/night.mp3', '/sounds/night-2.mp3'],   gain: 0.9, xfade: 2.5 },
+  none:   { files: [],                                             gain: 0,   xfade: 0   },
 };
 
 // ─── Public library (for UI) ──────────────────────────────────────────────────

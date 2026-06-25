@@ -42,3 +42,5 @@ next-env.d.ts
 .claude/
 /out
 app/_api_mobile_off
+incoming/sounds/
+incoming/music/
