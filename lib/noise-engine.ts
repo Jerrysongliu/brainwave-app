@@ -20,7 +20,7 @@ export type NoiseSoundscape =
   | 'rain' | 'storm'
   | 'ocean' | 'river'
   | 'fire'
-  | 'forest' | 'pond'
+  | 'forest'
   | 'night'
   | 'none';
 
@@ -41,9 +41,8 @@ const PROFILES: Record<NoiseSoundscape, SceneProfile> = {
   storm:  { files: ['/sounds/storm.mp3', '/sounds/storm-2.mp3'],   gain: 0.9, xfade: 2.5 },
   ocean:  { files: ['/sounds/ocean.mp3'],                          gain: 0.9, xfade: 2.5 },
   river:  { files: ['/sounds/river.mp3'],                          gain: 0.9, xfade: 2.5 },
-  fire:   { files: ['/sounds/fire.mp3'],                           gain: 0.9, xfade: 2.0 },
+  fire:   { files: ['/sounds/fire.mp3', '/sounds/fire-2.mp3'],     gain: 0.9, xfade: 2.5 },
   forest: { files: ['/sounds/forest.mp3', '/sounds/forest-2.mp3'], gain: 0.9, xfade: 2.5 },
-  pond:   { files: ['/sounds/pond.mp3'],                           gain: 0.9, xfade: 2.5 },
   night:  { files: ['/sounds/night.mp3', '/sounds/night-2.mp3'],   gain: 0.9, xfade: 2.5 },
   none:   { files: [],                                             gain: 0,   xfade: 0   },
 };
@@ -67,7 +66,6 @@ export const NOISE_LIBRARY: {
   { id: 'river',  label: 'River',        emoji: '🏞', category: 'water'  },
   { id: 'fire',   label: 'Campfire',     emoji: '🔥', category: 'fire'   },
   { id: 'forest', label: 'Forest Birds', emoji: '🌲', category: 'forest' },
-  { id: 'pond',   label: 'Wetland Pond', emoji: '🐸', category: 'forest' },
   { id: 'night',  label: 'Crickets',     emoji: '🦗', category: 'night'  },
 ];
 

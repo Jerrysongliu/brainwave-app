@@ -27,7 +27,6 @@ const SCENE: Record<NoiseSoundscape, { type: VisualType; color: string; color2: 
   river:  { type: 'waves', color: '#86d6e0', color2: '#4fb0c4', fast: true },
   fire:   { type: 'fire',  color: '#ff9a4c', color2: '#ff5a3c' },
   forest: { type: 'motes', color: '#b6e08a', color2: '#6fc48f' },
-  pond:   { type: 'motes', color: '#9adcc0', color2: '#62b6c4' },
   night:  { type: 'stars', color: '#d6dcff', color2: '#8a7cc8' },
   none:   { type: 'motes', color: '#9aaabe', color2: '#7a8aa6' },
 };

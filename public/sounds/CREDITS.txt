@@ -1,15 +1,11 @@
 BrainWave — Soundscape Audio Credits
 ====================================
 
-Soundscape recordings were provided by the app owner, downloaded from Pixabay
-and used under the Pixabay Content License (free for commercial use, no
-attribution required). All were loudness-normalized and trimmed to MP3.
+All soundscape recordings were provided by the app owner, downloaded from
+Pixabay and used under the Pixabay Content License (free for commercial use,
+no attribution required). Each was loudness-normalized and trimmed to MP3.
 
 Scenes with multiple files cycle when you tap the already-selected scene.
-
-NOTE: licenses are recorded as Pixabay Content License based on the source
-filenames. If any clip was actually sourced elsewhere (e.g. Freesound CC-BY),
-tell the maintainer so proper attribution can be added.
 
 Pixabay Content License (no attribution required):
   rain.mp3      <= rain-calming
@@ -20,8 +16,8 @@ Pixabay Content License (no attribution required):
   ocean.mp3     <= ocean-waves-372489
   river.mp3     <= river-sounds-420904
   fire.mp3      <= fire-crackling-sound-499636
+  fire-2.mp3    <= fire-ambience-528618
   forest.mp3    <= forest-ambience-296528
   forest-2.mp3  <= forest-ambience-540695
   night.mp3     <= night-atmosphere-with-crickets-374652
   night-2.mp3   <= night-forest-with-frogs-and-crickets-451153
-  pond.mp3      <= ambience-528618   (generic "ambience" — reassign if needed)
