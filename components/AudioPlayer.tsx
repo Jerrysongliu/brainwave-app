@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
+import * as Tone from 'tone';
 import type { GeneratedTrack } from '@/types';
 import { FREQUENCY_PROFILES } from '@/lib/brainwave-science';
 import {
@@ -119,6 +120,7 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, Props>(function AudioPl
 
   const doResume = useCallback(() => {
     bgRef.current?.start();
+    Tone.start().catch(() => {}); // re-wake the shared context (mobile suspends it on background)
     binauralRef.current?.resume();
     musicRef.current?.resume();
     noiseRef.current?.resume();
@@ -130,6 +132,12 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, Props>(function AudioPl
   const handleToggle = useCallback(async () => {
     setError('');
     bgRef.current?.start(); // claim the audio session inside the user gesture
+    // iOS/Android: kick the shared Tone AudioContext awake *synchronously*
+    // inside the tap (before any await). The music + soundscape engines decode
+    // MP3s asynchronously; without this, their buffers play into a context that
+    // was never resumed within the gesture and stay silent (beats use a separate
+    // context that is resumed first, which is why only they were audible).
+    Tone.start().catch(() => {});
     try {
       if (!ready) {
         const binaural = binauralRef.current!;
