@@ -30,7 +30,12 @@ export class BackgroundAudio {
     el.loop = true;
     el.preload = 'auto';
     (el as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
-    el.volume = 0.0001; // inaudible, but a "playing" element holds the session
+    // silent.mp3 is quiet (~-55dB) pink noise, not true digital silence — iOS's
+    // anti-abuse heuristic for background audio specifically detects and kills
+    // pages "faking" playback with genuine silence, so this needs to measure as
+    // real (if inaudible-in-practice) audio, not a zeroed-out buffer. Don't
+    // re-attenuate it back toward silence here.
+    el.volume = 0.5;
     el.play().catch(() => { /* gesture lost; engines still drive sound */ });
     this.el = el;
     this._setState('playing');
