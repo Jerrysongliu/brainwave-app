@@ -15,7 +15,6 @@
     "ios:icons": "capacitor-assets generate --ios"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.100.1",
     "@capacitor/core": "^8.4.1",
     "@capacitor/ios": "^8.4.1",
     "@radix-ui/react-slider": "^1.3.6",

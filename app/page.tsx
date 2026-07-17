@@ -8,6 +8,7 @@ import { ListMoodSelector } from '@/components/ListMoodSelector';
 import { PrismMoodSelector } from '@/components/PrismMoodSelector';
 import { SoundscapeBackground } from '@/components/SoundscapeBackground';
 import { useThemePalette } from '@/lib/use-theme';
+import { buildSession } from '@/lib/session-content';
 import type { MentalState, Duration, Intensity } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -24,58 +25,20 @@ const INTENSITIES: { value: Intensity; label: string; desc: string; icon: string
   { value: 'deep',     label: 'Deep',     desc: 'Full immersion',        icon: '●' },
 ];
 
-// Web build → '' (same-origin /api). Mobile static build → hosted Vercel API.
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
-
 export default function Home() {
   const router = useRouter();
   const palette = useThemePalette();
   const [mentalState, setMentalState] = useState<MentalState | null>(null);
   const [duration, setDuration] = useState<Duration>(15);
   const [intensity, setIntensity] = useState<Intensity>('moderate');
-  const [smartInput, setSmartInput] = useState('');
-  const [loadingRec, setLoadingRec] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState('');
 
-  const handleSmartRecommend = async () => {
-    if (!smartInput.trim()) return;
-    setLoadingRec(true);
-    setError('');
-    try {
-      const res = await fetch(`${API_BASE}/api/recommend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: smartInput }),
-      });
-      const data = await res.json();
-      if (data.mentalState) setMentalState(data.mentalState);
-    } catch {
-      setError('Could not get recommendation. Please select manually.');
-    } finally {
-      setLoadingRec(false);
-    }
-  };
-
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     if (!mentalState) return;
     setGenerating(true);
-    setError('');
-    try {
-      const res = await fetch(`${API_BASE}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mentalState, duration, intensity }),
-      });
-      if (!res.ok) throw new Error('Generation failed');
-      const track = await res.json();
-      sessionStorage.setItem('brainwave_track', JSON.stringify(track));
-      router.push('/player');
-    } catch {
-      setError('Generation failed. Check your ANTHROPIC_API_KEY and try again.');
-    } finally {
-      setGenerating(false);
-    }
+    const track = buildSession(mentalState, duration, intensity);
+    sessionStorage.setItem('brainwave_track', JSON.stringify(track));
+    router.push('/player');
   };
 
   return (
@@ -109,32 +72,6 @@ export default function Home() {
           <p className="text-white/40 text-lg max-w-md mx-auto leading-relaxed">
             Science-backed frequencies generated live in your browser. Free, forever.
           </p>
-        </div>
-
-        {/* AI recommender */}
-        <div className="glass rounded-2xl p-1 fade-up">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={smartInput}
-              onChange={(e) => setSmartInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSmartRecommend()}
-              placeholder="Describe how you feel… e.g. can't focus, anxious, exhausted"
-              className="flex-1 bg-transparent px-4 py-3.5 text-sm text-white placeholder-white/25 focus:outline-none"
-            />
-            <button
-              onClick={handleSmartRecommend}
-              disabled={loadingRec || !smartInput.trim()}
-              className="btn-accent m-1 px-5 py-2.5 rounded-xl text-sm font-medium disabled:opacity-30 whitespace-nowrap"
-            >
-              {loadingRec ? (
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
-                  Thinking
-                </span>
-              ) : '✦ Suggest'}
-            </button>
-          </div>
         </div>
 
         {/* Mood selector */}
@@ -192,12 +129,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-
-        {error && (
-          <div className="text-red-400 text-sm glass border-red-400/20 rounded-xl px-4 py-3 fade-up">
-            {error}
-          </div>
-        )}
 
         {/* Generate CTA */}
         <button
