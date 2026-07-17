@@ -26,7 +26,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-screen antialiased" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
-        <nav className="fixed top-0 left-0 right-0 z-50">
+        <nav
+          className="glass fixed top-0 left-0 right-0 z-50"
+          style={{ borderRadius: 0, borderLeft: 'none', borderRight: 'none', borderTop: 'none' }}
+        >
           <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
             <a href="/" className="flex items-center gap-2.5 group">
               <div

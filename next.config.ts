@@ -4,6 +4,10 @@ import type { NextConfig } from "next";
 const isMobile = process.env.MOBILE === "1";
 
 const nextConfig: NextConfig = {
+  // A stray package.json/lockfile in the parent directory otherwise makes
+  // Next.js infer the wrong workspace root, which was silently defeating the
+  // browserslist config (and the backdrop-filter prefixing it controls).
+  turbopack: { root: __dirname },
   ...(isMobile
     ? {
         output: "export",
