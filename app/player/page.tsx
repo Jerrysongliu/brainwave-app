@@ -23,14 +23,17 @@ const STATE_BG: Record<string, string> = {
   'anxiety-relief': 'from-cyan-950/50 via-transparent',
 };
 
+// Radial gradients (not blur-filtered solid circles) — the falloff already
+// reads as soft, and it doesn't force a re-raster of a 600px filter region on
+// every frame the canvas behind it repaints.
 const STATE_GLOW: Record<string, string> = {
-  focus:            'bg-indigo-500/10',
-  learning:         'bg-violet-500/10',
-  relaxation:       'bg-emerald-500/10',
-  sleep:            'bg-blue-700/15',
-  'mood-boost':     'bg-amber-500/10',
-  meditation:       'bg-pink-500/10',
-  'anxiety-relief': 'bg-cyan-500/10',
+  focus:            'radial-gradient(circle, rgba(99,102,241,0.16) 0%, transparent 70%)',
+  learning:         'radial-gradient(circle, rgba(139,92,246,0.16) 0%, transparent 70%)',
+  relaxation:       'radial-gradient(circle, rgba(16,185,129,0.16) 0%, transparent 70%)',
+  sleep:            'radial-gradient(circle, rgba(29,78,216,0.20) 0%, transparent 70%)',
+  'mood-boost':     'radial-gradient(circle, rgba(245,158,11,0.16) 0%, transparent 70%)',
+  meditation:       'radial-gradient(circle, rgba(236,72,153,0.16) 0%, transparent 70%)',
+  'anxiety-relief': 'radial-gradient(circle, rgba(6,182,212,0.16) 0%, transparent 70%)',
 };
 
 function useTimer(isPlaying: boolean) {
@@ -95,11 +98,17 @@ export default function PlayerPage() {
         active={isPlaying}
       />
 
-      {/* Per-state background aura */}
-      <div className="pointer-events-none fixed inset-0">
-        <div className={`absolute inset-0 bg-gradient-to-b ${STATE_BG[track.mentalState]}`} />
-        <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full blur-[140px] ${STATE_GLOW[track.mentalState]}`} />
-      </div>
+      {/* Per-state background aura — Nebula/Holographic/Iridescence already get
+          their full look from the canvas above; this only layers onto Aurora. */}
+      {palette === 'aurora' && (
+        <div className="pointer-events-none fixed inset-0">
+          <div className={`absolute inset-0 bg-gradient-to-b ${STATE_BG[track.mentalState]}`} />
+          <div
+            className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full"
+            style={{ background: STATE_GLOW[track.mentalState] }}
+          />
+        </div>
+      )}
 
       {/* Back button */}
       <div className="relative w-full max-w-2xl px-5 pt-4">

@@ -47,10 +47,13 @@ export default function Home() {
       {palette === 'nebula' || palette === 'holographic' || palette === 'iridescence' ? (
         <SoundscapeBackground soundscape="none" mentalState={mentalState ?? 'meditation'} active={false} />
       ) : (
+        // Soft glow orbs — a radial gradient fades to transparent on its own, so
+        // this reads the same as a blurred solid circle without the (expensive,
+        // continuously-repainted-by-the-drift-animation) blur filter.
         <div className="pointer-events-none fixed inset-0 overflow-hidden">
-          <div className="orb-1 absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full blur-[120px]" style={{ background: 'var(--accent)', opacity: 0.12 }} />
-          <div className="orb-2 absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full blur-[100px]" style={{ background: 'var(--accent-2)', opacity: 0.10 }} />
-          <div className="absolute top-[40%] left-[50%] w-[300px] h-[300px] rounded-full blur-[80px]" style={{ background: 'var(--accent-3)', opacity: 0.08 }} />
+          <div className="orb-1 absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full" style={{ background: 'radial-gradient(circle, var(--accent) 0%, transparent 70%)', opacity: 0.16 }} />
+          <div className="orb-2 absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, var(--accent-2) 0%, transparent 70%)', opacity: 0.14 }} />
+          <div className="absolute top-[40%] left-[50%] w-[300px] h-[300px] rounded-full" style={{ background: 'radial-gradient(circle, var(--accent-3) 0%, transparent 70%)', opacity: 0.12 }} />
         </div>
       )}
 

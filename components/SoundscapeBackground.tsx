@@ -123,7 +123,10 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
     }));
 
     const resize = () => {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // Capped well below the display's real DPR — this canvas paints soft,
+      // large-radius gradients where extra sharpness is invisible, but every
+      // extra fraction of DPR multiplies fill-rate cost on mobile GPUs.
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       W = window.innerWidth; H = window.innerHeight;
       canvas.width = W * dpr; canvas.height = H * dpr;
       canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
@@ -165,6 +168,30 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
 
     let last = performance.now();
     let flash = 0;
+
+    // Throttle to ~30fps (this ambient motion doesn't need 60/120), and skip
+    // painting entirely while the page is scrolling or the tab is hidden —
+    // that's what was competing with scroll for main-thread time on mobile.
+    const FRAME_MS = 1000 / 30;
+    let lastFrameTime = 0;
+    let scrolling = false;
+    let scrollTimer = 0;
+    const onScroll = () => {
+      scrolling = true;
+      window.clearTimeout(scrollTimer);
+      scrollTimer = window.setTimeout(() => { scrolling = false; }, 150);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(rafRef.current);
+      } else if (!reduce) {
+        lastFrameTime = 0;
+        rafRef.current = requestAnimationFrame(frame);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
 
     const blobColor = (which: number, scene: typeof SCENE[NoiseSoundscape], mood: string): [number, number, number] => {
       if (which === 0) return hexRgb(scene.color);
@@ -300,6 +327,10 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
     };
 
     const frame = (now: number) => {
+      rafRef.current = requestAnimationFrame(frame);
+      if (scrolling || (now - lastFrameTime < FRAME_MS)) return;
+      lastFrameTime = now;
+
       const dt = Math.min(2.5, (now - last) / 16.67); last = now;
       const scene = SCENE[sceneRef.current];
       if (scene.type !== curType) build();
@@ -312,19 +343,16 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
       // Nebula theme overrides the soundscape scene with a galaxy swirl.
       if (themeMode.current === 'nebula') {
         renderNebula(now, baseA);
-        rafRef.current = requestAnimationFrame(frame);
         return;
       }
       // Holographic theme — neon network.
       if (themeMode.current === 'holographic') {
         renderHolographic(now, baseA);
-        rafRef.current = requestAnimationFrame(frame);
         return;
       }
       // Iridescence theme — flowing pastel-prism mesh.
       if (themeMode.current === 'iridescence') {
         renderIridescence(now, baseA);
-        rafRef.current = requestAnimationFrame(frame);
         return;
       }
 
@@ -424,7 +452,6 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
 
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
-      rafRef.current = requestAnimationFrame(frame);
     };
 
     resize();
@@ -434,6 +461,9 @@ export function SoundscapeBackground({ soundscape, mentalState, active }: Props)
     return () => {
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener('resize', resize);
+      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.clearTimeout(scrollTimer);
       mo.disconnect();
     };
   }, []);
