@@ -20,6 +20,7 @@ import { STATE_STYLES, MUSIC_STYLES, DEFAULT_STYLE, type StyleId } from '@/lib/m
 import { useThemePalette } from '@/lib/use-theme';
 import { RingGauge } from '@/components/RingGauge';
 import { FrequencyCard } from '@/components/FrequencyCard';
+import { PearlSlider } from '@/components/PearlSlider';
 import { BackgroundAudio } from '@/lib/background-audio';
 import type { MentalState } from '@/types';
 import { cn } from '@/lib/utils';
@@ -239,9 +240,10 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, Props>(function AudioPl
         <div className="text-red-500/90 text-sm bg-red-400/10 rounded-2xl px-4 py-2.5">{error}</div>
       )}
 
-      {/* Play button + track summary (Nebula uses the hero button on the page) */}
+      {/* Play button + track summary (Nebula/Holographic/Iridescence use a hero
+          button on the player page itself — only Aurora's default shows this one) */}
       <div className="flex items-center gap-4">
-        {palette !== 'nebula' && (
+        {palette === 'aurora' && (
           <button
             onClick={handleToggle}
             className="ring-accent w-16 h-16 flex-shrink-0 rounded-full bg-white/12 hover:bg-white/20 active:scale-95 flex items-center justify-center text-2xl transition-all border border-white/15"
@@ -262,7 +264,7 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, Props>(function AudioPl
           (Soundscape volume lives in the Soundscape section, not here.) */}
       <div className={compact ? 'hidden' : 'space-y-4'}>
         <p className="text-xs font-semibold text-white/45 uppercase tracking-[0.14em]">
-          {palette === 'holographic' ? 'Frequency Matrix' : 'Mixer'}
+          {palette === 'holographic' ? 'Frequency Matrix' : palette === 'iridescence' ? 'Prism Mix' : 'Mixer'}
         </p>
 
         {palette === 'nebula' ? (
@@ -296,6 +298,23 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, Props>(function AudioPl
             />
             <FrequencyCard
               label="Music Mix" display={`${Math.round(musicVol * 100)}%`}
+              value={musicVol} onChange={handleMusicVol}
+            />
+          </div>
+        ) : palette === 'iridescence' ? (
+          /* Iridescence — pastel-prism bar sliders (drag or tap the track) */
+          <div className="space-y-4">
+            <PearlSlider
+              label="🧠 Binaural Beat" display={`${beatHz.toFixed(1)} Hz`}
+              value={(beatHz - 0.5) / 39.5}
+              onChange={(v) => handleBeatHz(0.5 + v * 39.5)}
+            />
+            <PearlSlider
+              label="〰️ Binaural Tone" display={`${Math.round(binauralVol * 100)}%`}
+              value={binauralVol} onChange={handleBinauralVol}
+            />
+            <PearlSlider
+              label="🎹 Music" display={`${Math.round(musicVol * 100)}%`}
               value={musicVol} onChange={handleMusicVol}
             />
           </div>

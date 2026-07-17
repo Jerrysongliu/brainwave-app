@@ -128,9 +128,33 @@ export default function PlayerPage() {
               </button>
             )
             : palette === 'holographic'
-            ? <HoloVisualizer isPlaying={isPlaying} size={220} />
+            ? (
+              <button
+                onClick={() => playerRef.current?.toggle()}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+                className="relative active:scale-95 transition-transform"
+                style={{ width: 220, height: 220 }}
+              >
+                <HoloVisualizer isPlaying={isPlaying} size={220} />
+                {!isPlaying && (
+                  <span className="absolute inset-0 flex items-center justify-center text-4xl pointer-events-none" style={{ color: 'var(--accent)' }}>▶</span>
+                )}
+              </button>
+            )
             : palette === 'iridescence'
-            ? <IridescentOrb isPlaying={isPlaying} size={220} />
+            ? (
+              <button
+                onClick={() => playerRef.current?.toggle()}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+                className="relative active:scale-95 transition-transform"
+                style={{ width: 220, height: 220 }}
+              >
+                <IridescentOrb isPlaying={isPlaying} size={220} />
+                {!isPlaying && (
+                  <span className="absolute inset-0 flex items-center justify-center text-4xl pointer-events-none text-white/80">▶</span>
+                )}
+              </button>
+            )
             : <NeuralOrb mentalState={track.mentalState} isPlaying={isPlaying} size={220} />}
 
           <div className="text-center space-y-2">
